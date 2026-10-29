@@ -1,0 +1,40 @@
+# File perf theo File Layout Release 47 (07/2026): 35 trường, không tiêu đề, phân tách bằng |.
+# Quy ước cột như conf/schema/orig.yml. Các khoản tiền thu hồi ghi âm, chi phí và tổn thất ghi dương (Release 47).
+file_pattern: { sample: "sample_perf_{vintage}.txt", historical: "perf_{vintage}Q{q}.txt" }
+field_count: 35
+columns:
+  - { pos: 1,  name: loan_id,                     source: "Loan Identifier",                      type: string,  pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan }
+  - { pos: 2,  name: reporting_period,            source: "Period",                               type: yyyymm,                                     target: "(trục thời gian nghiệp vụ)" }
+  - { pos: 3,  name: current_upb,                 source: "Current Actual UPB",                   type: decimal, domain: [0, null],                 target: sat_loan_balance }
+  - { pos: 4,  name: delinquency_status,          source: "Current Loan Delinquency Status",      type: string,  missing: ["XX"], pattern: "^(\\d{2}|RA)$", target: sat_loan_delinquency }
+  - { pos: 5,  name: loan_age,                    source: "Loan Age",                             type: int,                                        target: sat_loan_balance }
+  - { pos: 6,  name: remaining_months,            source: "Remaining Months to Legal Maturity",   type: int,                                        target: sat_loan_balance }
+  - { pos: 7,  name: defect_settlement_date,      source: "Underwriting Defect and Major Servicing Defect Settlement Date", type: yyyymm, nullable: true, target: sat_loan_termination }
+  - { pos: 8,  name: modification_flag,           source: "Modification Flag",                    type: string,  nullable: true, values: [Y, P],    target: sat_loan_delinquency }
+  - { pos: 9,  name: zero_balance_code,           source: "Zero Balance Code",                    type: string,  nullable: true, values: ["01", "02", "03", "09", "15", "16", "96"], target: sat_loan_termination }
+  - { pos: 10, name: zero_balance_date,           source: "Zero Balance Effective Date",          type: yyyymm,  nullable: true,                    target: sat_loan_termination }
+  - { pos: 11, name: current_interest_rate,       source: "Current Interest Rate",                type: decimal,                                    target: sat_loan_balance }
+  - { pos: 12, name: non_interest_bearing_upb,    source: "Current Non-Interest Bearing UPB",     type: decimal,                                    target: sat_loan_balance }
+  - { pos: 13, name: ddlpi,                       source: "Due Date of Last Paid Installment (DDLPI)", type: yyyymm, nullable: true,              target: sat_loan_termination }
+  - { pos: 14, name: mi_recoveries,               source: "MI Recoveries",                        type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 15, name: net_sales_proceeds,          source: "Net Sales Proceeds",                   type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 16, name: non_mi_recoveries,           source: "Non MI Recoveries",                    type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 17, name: total_expenses,              source: "Total Expenses",                       type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 18, name: legal_costs,                 source: "Legal Costs",                          type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 19, name: maintenance_costs,           source: "Maintenance and Preservation Costs",   type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 20, name: taxes_insurance,             source: "Taxes and Insurance",                  type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 21, name: misc_expenses,               source: "Miscellaneous Expenses",               type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 22, name: actual_loss,                 source: "Actual Loss",                          type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 23, name: cumulative_modification_cost, source: "Cumulative Modification Costs",       type: decimal,                                    target: sat_loan_balance }
+  - { pos: 24, name: interest_rate_step_flag,     source: "Interest Rate Step Indicator",         type: string,  nullable: true, values: [Y, N],    target: sat_loan_delinquency }
+  - { pos: 25, name: payment_deferral_flag,       source: "Payment Deferral Flag",                type: string,  nullable: true, values: [C, P],    target: sat_loan_delinquency }
+  - { pos: 26, name: eltv,                        source: "Estimated Loan-to-Value (ELTV)",       type: int,     missing: ["999"], domain: [1, 998], target: sat_loan_balance }
+  - { pos: 27, name: zero_balance_removal_upb,    source: "Zero Balance Removal UPB",             type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 28, name: delinquent_accrued_interest, source: "Delinquent Accrued Interest",          type: decimal, nullable: true,                    target: sat_loan_termination }
+  - { pos: 29, name: disaster_delinquency_flag,   source: "Delinquency Due to Disaster",          type: string,  nullable: true, values: [Y],       target: sat_loan_delinquency }
+  - { pos: 30, name: borrower_assistance_plan,    source: "Borrower Assistance Plan",             type: string,  nullable: true, values: [F, R, T], target: sat_loan_delinquency }
+  - { pos: 31, name: current_modification_cost,   source: "Current Period Modification Costs",    type: decimal, nullable: true,                    target: sat_loan_balance }
+  - { pos: 32, name: interest_bearing_upb,        source: "Current Interest Bearing UPB",         type: decimal,                                    target: sat_loan_balance }
+  - { pos: 33, name: mi_cancellation_flag,        source: "Mortgage Insurance Cancellation Indicator", type: string, missing: ["7"], values: [Y, N], target: sat_loan_delinquency }
+  - { pos: 34, name: servicer_name,               source: "Servicer Name",                        type: string,                                     target: [hub_servicer, link_loan_servicer, esat_loan_servicer] }
+  - { pos: 35, name: bankruptcy_cramdown_costs,   source: "Bankruptcy Cramdown Costs",            type: decimal, nullable: true,                    target: sat_loan_termination }

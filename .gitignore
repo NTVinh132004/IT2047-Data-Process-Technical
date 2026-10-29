@@ -1,0 +1,24 @@
+# Dữ liệu Freddie Mac không được phân phối lại
+data/
+*.crdownload
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Spark / Hive local
+spark-warehouse/
+metastore_db/
+derby.log
+logs/
+
+# Bí mật
+.env

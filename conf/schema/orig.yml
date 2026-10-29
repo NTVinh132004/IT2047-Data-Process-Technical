@@ -1,0 +1,39 @@
+# File orig theo File Layout Release 47 (07/2026): 31 trường, không tiêu đề, phân tách bằng |.
+# Giải thích nghiệp vụ và Satellite đích: docs/tu-dien-du-lieu.md.
+# type: string | int | decimal | yyyymm (chuỗi 6 ký tự, giữ nguyên để không lẫn với load_date)
+# missing: mã nguồn mang nghĩa "không có"; Bronze giữ nguyên, staging đổi thành null
+# target: hub_* / link_* / sat_* nhận cột; "-" là không dùng trong MVP
+file_pattern: { sample: "sample_orig_{vintage}.txt", historical: "orig_{vintage}Q{q}.txt" }
+field_count: 31
+columns:
+  - { pos: 1,  name: credit_score,              source: "Classic FICO",                         type: int,     missing: ["9999"], domain: [300, 850],            target: sat_loan_origination }
+  - { pos: 2,  name: first_payment_date,        source: "First Payment Date",                   type: yyyymm,                                                      target: sat_loan_origination }
+  - { pos: 3,  name: first_time_homebuyer_flag, source: "First Time Homebuyer Indicator",       type: string,  missing: ["9"],    values: [Y, N],                 target: sat_loan_origination }
+  - { pos: 4,  name: maturity_date,             source: "Maturity Date",                        type: yyyymm,                                                      target: sat_loan_origination }
+  - { pos: 5,  name: msa_code,                  source: "Metropolitan Statistical Area (MSA) Or Metropolitan Division", type: string, nullable: true,         target: sat_loan_property }
+  - { pos: 6,  name: mi_pct,                    source: "Mortgage Insurance Percentage (MI %)", type: int,     missing: ["999"],  domain: [0, 55],               target: sat_loan_origination }
+  - { pos: 7,  name: number_of_units,           source: "Number of Units",                      type: int,     missing: ["99"],   domain: [1, 4],                target: sat_loan_property }
+  - { pos: 8,  name: occupancy_status,          source: "Occupancy Status",                     type: string,  missing: ["9"],    values: [P, I, S],              target: sat_loan_property }
+  - { pos: 9,  name: orig_cltv,                 source: "Original Combined Loan-to-Value (CLTV)", type: int,   missing: ["999"],  domain: [1, 998],              target: sat_loan_origination }
+  - { pos: 10, name: orig_dti,                  source: "Original Debt-to-Income (DTI) Ratio",  type: int,     missing: ["999"],  domain: [0, 65],               target: sat_loan_origination }
+  - { pos: 11, name: orig_upb,                  source: "Original UPB",                         type: decimal,                    domain: [0, null],             target: sat_loan_origination }
+  - { pos: 12, name: orig_ltv,                  source: "Original Loan-to-Value (LTV)",         type: int,     missing: ["999"],  domain: [1, 998],              target: sat_loan_origination }
+  - { pos: 13, name: orig_interest_rate,        source: "Original Interest Rate",               type: decimal,                    domain: [0, 20],               target: sat_loan_origination }
+  - { pos: 14, name: channel,                   source: "Channel",                              type: string,  missing: ["9"],    values: [R, B, C, T],           target: sat_loan_origination }
+  - { pos: 15, name: prepayment_penalty_flag,   source: "Prepayment Penalty Indicator",         type: string,                     values: [Y, N],                 target: "-" }
+  - { pos: 16, name: amortization_type,         source: "Amortization Type",                    type: string,                     values: [FRM, ARM],             target: "-" }
+  - { pos: 17, name: property_state,            source: "Property State",                       type: string,                                                      target: sat_loan_property }
+  - { pos: 18, name: property_type,             source: "Property Type",                        type: string,  missing: ["99"],   values: [CP, CO, PU, SF, MH],   target: sat_loan_property }
+  - { pos: 19, name: postal_code,               source: "Postal Code",                          type: string,  missing: ["000"],                                  target: sat_loan_property }
+  - { pos: 20, name: loan_id,                   source: "Loan Identifier",                      type: string,                     pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan }
+  - { pos: 21, name: loan_purpose,              source: "Loan Purpose",                         type: string,  missing: ["9"],    values: [P, C, N, R],           target: sat_loan_origination }
+  - { pos: 22, name: orig_loan_term,            source: "Original Loan Term",                   type: int,                        domain: [1, 480],              target: sat_loan_origination }
+  - { pos: 23, name: number_of_borrowers,       source: "Number of Borrowers",                  type: int,     missing: ["99"],   domain: [1, 10],               target: sat_loan_origination }
+  - { pos: 24, name: seller_name,               source: "Seller Name",                          type: string,                                                      target: [hub_seller, link_loan_seller] }
+  - { pos: 25, name: super_conforming_flag,     source: "Super Conforming Flag",                type: string,                     values: [Y, N],                 target: sat_loan_origination }
+  - { pos: 26, name: pre_harp_loan_id,          source: "Pre-HARP Loan Sequence Number",        type: string,  nullable: true,                                    target: "-" }
+  - { pos: 27, name: special_eligibility_program, source: "Special Eligibility Program",        type: string,  nullable: true,    values: [H, F, R],              target: sat_loan_origination }
+  - { pos: 28, name: harp_indicator,            source: "HARP Indicator",                       type: string,                     values: [Y, N],                 target: "-" }
+  - { pos: 29, name: property_valuation_method, source: "Property Valuation Method",            type: string,  missing: ["7"],    values: ["1", "2", "3", "4"],   target: sat_loan_property }
+  - { pos: 30, name: interest_only_flag,        source: "Interest Only (I/O) Indicator",        type: string,                     values: [Y, N],                 target: "-" }
+  - { pos: 31, name: vantage_score_4,           source: "VantageScore 4.0",                     type: int,     missing: ["9999"], domain: [300, 850],            target: "-" }

@@ -1,0 +1,101 @@
+# Review: PRD và Kế hoạch triển khai
+
+Oct 27, 2026 · @Vĩnh
+
+Vòng review đọc chéo PRD và Kế hoạch triển khai, tìm ra 16 vấn đề: 1 lỗi thiết kế nghiêm trọng, 6 chỗ hai tài liệu mâu thuẫn hoặc tự mâu thuẫn, 9 chỗ thiếu hoặc mơ hồ. Vòng 2 (mục 4) bổ sung 4 vấn đề về lập luận chọn Data Vault và quy trình thực thi. Tất cả đã sửa trong hai file; 2 điểm còn phụ thuộc vào spike kỹ thuật tuần 1 (mục 5). Bản gốc trước khi sửa được giữ ở thư mục backup ngoài repo.
+
+## 1. Lỗi thiết kế nghiêm trọng
+
+**R-01. Khóa Satellite trùng khi kỳ nạp là một quý.**
+Kỳ nạp là một quý, nên mỗi khoản vay có 3 dòng perf trong một đợt. Nếu cả đợt dùng chung một `load_date`, ba dòng này trùng khóa (`hash_key`, `load_date`) ở `sat_loan_balance` và `sat_loan_delinquency`. Macro `sat` sẽ giữ một dòng và bỏ hai, nên Satellite mất 2/3 lịch sử. AC-04 (PIT khớp Bronze) sẽ sai ở 2/3 số tháng, và thực nghiệm 6 mất ý nghĩa.
+
+*Sửa:* DAG vẫn chạy theo quý, nhưng mỗi tháng báo cáo m trong quý mang `load_date` riêng (ngày 1 của tháng m+1). PIT dùng các `load_date` theo tháng làm mốc as-of. Phương án dự phòng: nếu macro `sat` không xử lý được nhiều `load_date` trong một stage thì chạy dbt Raw Vault 3 lần mỗi kỳ. (PRD mục 4, 6, FR-10, FR-13; Kế hoạch mục 4)
+
+*Phương án đã cân nhắc và không chọn:* đổi kỳ nạp thành một tháng. Cách này đúng về logic nhưng tăng số lần chạy DAG lên khoảng 80 lần, khó đạt mục tiêu 45 phút. Thêm `reporting_period` vào khóa Satellite (multi-active) thì Satellite luôn có dòng mới mỗi tháng, làm mất giá trị của `hash_diff` mà P2 dựa vào.
+
+## 2. Mâu thuẫn
+
+| # | Vấn đề | Sửa |
+| --- | --- | --- |
+| R-02 | Idempotent "không đổi số dòng ở bảng nào", nhưng FR-02 yêu cầu `load_control` ghi một dòng mỗi lần chạy | Loại trừ `load_control` (là nhật ký chạy) ở G1 và NFR |
+| R-03 | FR-01 bỏ qua kỳ đã SUCCESS, nhưng AC-02 và FR-14 cần chạy lại kỳ | `make run PERIOD=` luôn chạy; chỉ `run-all` bỏ qua kỳ đã SUCCESS; FR-14 thành một đợt sửa có `load_date` mới |
+| R-04 | AC-08 (MVP tuần 5) cần dashboard hoặc notebook, nhưng kế hoạch để dashboard ở tuần 7 | Tuần 5 làm notebook; dashboard Metabase (Should) ở tuần 7 |
+| R-05 | PRD nhắc "code freeze tuần 7" nhưng kế hoạch không có mốc này | Thêm mốc thứ 4 vào mục 6 và 7 |
+| R-06 | Thứ tự cắt giảm ở P6 bỏ 1 Satellite Business Vault, trong khi FR-12 là Must | Chỉ cắt các mục Should trước: FR-20 → FR-11 → FR-18 (FR-14 được nâng lên Must ở R-17) |
+| R-07 | P5 lập luận nên viết tay nhưng kết luận dùng automate-dv; số "2 phản biện đổi thiết kế" bỏ sót P5 | Viết lại P5; cập nhật số lượng thành 3 (P2, P3, P5) |
+
+## 3. Thiếu hoặc mơ hồ
+
+| # | Vấn đề | Sửa |
+| --- | --- | --- |
+| R-08 | Chạy lại một kỳ *cũ* sau khi đã nạp kỳ mới hơn: macro `sat` so với phiên bản mới nhất nên có thể chèn lại giá trị cũ | FR-10: bỏ qua dòng có (`hash_key`, `load_date`) đã tồn tại; AC-02 kiểm cả kỳ cũ |
+| R-09 | Bronze và quarantine nạp lại có thể nhân đôi dòng | Ghi đè lát của kỳ bằng `replaceWhere` (FR-04, FR-07) |
+| R-10 | Không nói rõ orig vào Bronze theo kỳ nào; AC-01 và AC-03 không kiểm được | Lát orig của kỳ là các khoản vay có tháng perf đầu tiên trong quý; AC-03 tính sau kỳ cuối, chỉ trên khoản vay có perf |
+| R-11 | 3 mart không trả lời được câu 2 (LTV, DTI) và câu 3 (bên bán) | `mart_delinquency` có thêm chiều bên bán và nhóm LTV, DTI |
+| R-12 | Số Satellite lệch (5 hay 6) và chưa đặt tên; số dim lệch (4–5 hay 5) | Đặt tên 5 Satellite; esat ghi là tùy chọn; chốt 5 dim |
+| R-13 | Hash: `sha2` hay `md5`, dấu phân cách và cách xử lý null chưa chốt | sha2-256, `\|\|`, null thành `^^`; thêm test thứ tự null |
+| R-14 | "4 phép đối soát" ở G2 không chỉ rõ là những AC nào | Ghi rõ AC-01, 03, 05, 06 |
+| R-15 | Giả thuyết thực nghiệm 1 "tuyến tính nhờ phân tán" không đúng trên một máy; quy tắc đo chưa xử lý cache, lần khởi động | Viết lại giả thuyết theo điểm nghẽn từng tầng; xóa cache, bỏ lần đầu, báo cáo trung vị |
+| R-16 | Spike automate-dv và việc kiểm dung lượng bộ đầy đủ là điều kiện tuần 1 nhưng không có trong giai đoạn 0; PostgreSQL phục vụ dùng chung với Metastore | Thêm vào giai đoạn 0; tách database `analytics` |
+
+## 4. Vòng 2: lập luận chọn Data Vault và quy trình thực thi
+
+Câu hỏi đặt ra: Data Vault có phải lựa chọn mô hình sai cho use case này không? Kết luận: không. Các chỗ thiếu ở vòng 1 (từ điển dữ liệu, định nghĩa nghiệp vụ, luật chất lượng) mô hình nào cũng cần, và Data Vault đáp ứng đúng nhu cầu truy vết của nhóm kiểm toán. Tuy nhiên, lập luận bảo vệ lựa chọn này đang mỏng hơn mức tài liệu tự nhận.
+
+| # | Vấn đề | Sửa |
+| --- | --- | --- |
+| R-17 | Kịch bản duy nhất cho thấy Data Vault làm được điều star schema ghi đè không làm được (FR-14) lại là Should, dễ bị cắt đầu tiên | FR-14 lên Must; thêm AC-09 và bảng đối chứng `baseline_dim_loan_overwrite` |
+| R-18 | P1 dùng thực nghiệm 4 làm bằng chứng, nhưng thực nghiệm này chỉ so hai cách truy vấn bên trong Data Vault | Sửa P1: bằng chứng là đợt sửa dữ liệu (AC-09) |
+| R-19 | Chưa trả lời câu "sao không dùng Delta time travel?" | Thêm phản biện P8 và câu vấn đáp tương ứng |
+| R-20 | PRD sẽ thay đổi khi thực thi nhưng chưa có quy trình; các giai đoạn chưa có điều kiện cụ thể để đi tiếp | PRD mục 8 (quản lý thay đổi, lịch sử phiên bản); Kế hoạch mục 6 thêm cổng C0–C7, mỗi cổng gắn với AC/FR và có lệnh `make gate` |
+
+## 5. Còn mở, chờ spike tuần 1
+
+- [x] Macro `sat` của automate-dv trên dbt-spark có xử lý được nhiều `load_date` trong một stage không (quyết định cách giải R-01). Có, xem R-26
+- [x] Macro `sat` có bỏ qua dòng đã tồn tại khi chạy lại kỳ cũ không, hay cần bọc thêm bộ lọc (R-08). Không, cần bật bộ lọc `valid_stg`, xem R-26
+
+## 6. Vòng 3: phát hiện từ File Layout Release 47 và bộ mẫu (giai đoạn 0)
+
+Ngày 27/10/2026, khi lập từ điển dữ liệu (`docs/tu-dien-du-lieu.md`), đọc File Layout Release 47 và khám phá bộ mẫu cho thấy một giả định kiến trúc sai và ba điểm cần chốt. PRD lên bản 1.3.
+
+| # | Vấn đề | Quyết định |
+| --- | --- | --- |
+| R-21 | Release 47 chuyển Servicer Name từ orig sang perf (vị trí 34). Thiết kế cũ lấy `hub_servicer`, `link_loan_servicer` từ orig. Trên bộ mẫu, 18.774 khoản vay (37,5%) đổi servicer, 2.368 khoản vay quay lại servicer cũ | `hub_servicer` và `link_loan_servicer` nạp từ perf. FR-11 (`esat_loan_servicer`) giữ mức Should nhưng nay có dữ liệu để làm. Nếu cắt FR-11, Gold gắn mỗi khoản vay với servicer đầu tiên trong Link và ghi hạn chế, vì Link không biểu diễn được A → B → A. *Phương án không chọn:* nâng FR-11 lên Must (tăng phạm vi khi nhóm chỉ còn một người, xem R-25); bỏ `hub_servicer` và để servicer là thuộc tính Satellite (làm yếu mô hình) |
+| R-22 | Seller và servicer dưới ngưỡng 1% UPB của quý bị gộp thành `OTHER` (33,7% khoản vay ở seller) | Giữ `OTHER` là một khóa Hub; mart và báo cáo ghi rõ đây không phải một tổ chức. Rủi ro ở mục 10 Kế hoạch chuyển thành hạn chế đã biết |
+| R-23 | Trong forbearance COVID, mã quá hạn vẫn tăng. Định nghĩa vỡ nợ "180 ngày trở lên" cho 1.701 khoản vay, bỏ các tháng forbearance thì còn 926 | Vỡ nợ = quá hạn 180+ ngoài tháng forbearance, hoặc `RA`, hoặc ZBC `02`/`03`/`09` (từ điển dữ liệu mục 4) |
+| R-24 | Bộ mẫu có 29 kỳ (2019Q1–2026Q1), 87 `load_date`. Mục tiêu 45 phút tương đương khoảng 1,5 phút mỗi kỳ | Không đổi mục tiêu lúc này; baseline ở C1 quyết định. Nếu không đạt, điều chỉnh theo PRD mục 8 |
+
+## 7. Kết luận spike C0 (29/10/2026)
+
+Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby nhúng) và dbt-spark nạp `hub_loan`, `sat_loan_balance` cho tháng 201904 và 201905 của bộ mẫu. Lệnh `make gate N=0` chạy lại 6 kiểm thử.
+
+**R-26. automate-dv chạy được trên dbt-spark, nhưng cần một lớp tương thích.**
+
+| Phát hiện | Quyết định |
+| --- | --- |
+| automate-dv 0.11.5 chỉ có macro `databricks__*`. Adapter dbt-spark tìm `spark__*` rồi `default__*` (SQL kiểu Snowflake), nên lỗi ngay ở bước compile | Sinh tự động 24 macro `spark__X` gọi `databricks__X` (`gen_shim.py`); chạy lại khi đổi phiên bản automate-dv |
+| Bản Databricks của `hub`, `link`, `sat`, `eff_sat` dùng `QUALIFY`. Spark mã nguồn mở 3.5 và 4.1 đều không hỗ trợ cú pháp này | Viết tay `spark__hub`, `spark__sat` (thay `QUALIFY` bằng truy vấn con, giữ nguyên logic); `link` làm ở C2. Nhóm phải giải thích được SQL của các macro này khi vấn đáp (P5) |
+| Spark 3.5.7 + Delta 3.3.2 lỗi ở `CREATE OR REPLACE TABLE AS SELECT`, câu lệnh dbt-spark dùng khi tạo bảng | Chốt Spark 3.5.5, Delta 3.3.2, dbt-core 1.12.5, dbt-spark 1.11.0, automate_dv 0.11.5 |
+| R-01: macro `sat` so `hash_diff` với dòng liền trước theo `load_date` ngay trong stage, nên nạp nhiều tháng một lần vẫn đúng (28.069 dòng Satellite = 28.069 dòng perf) | Không cần chạy dbt Raw Vault 3 lần mỗi kỳ; bỏ phương án dự phòng ở PRD mục 6 |
+| R-08: không có bộ lọc, chạy lại tháng 201904 sau 201905 chèn lại 12.042 dòng trùng khóa, vì dòng cũ bị so với phiên bản mới nhất | Bật `apply_source_filter`: chỉ nhận dòng của khóa mới hoặc có `load_date` sau phiên bản mới nhất. Sửa câu chữ FR-10 cho khớp |
+| Hash lưu dạng chuỗi hex in hoa 64 ký tự: `UPPER(SHA2(UPPER(TRIM(x)), 256))` | Ghi vào FR-06; test hash và các phép join so theo kiểu chuỗi |
+
+*Phương án đã cân nhắc và không chọn:* bỏ automate-dv, tự viết toàn bộ macro (mất phần staging, hash, PIT đã chạy được); chuyển sang Databricks (trái với yêu cầu chạy cục bộ, không dùng cloud trả phí).
+
+*Hệ quả của bộ lọc R-08:* dữ liệu đến trễ của một tháng cũ bị bỏ qua thay vì được chèn vào giữa lịch sử. Đây là chủ ý: nếu chèn vào giữa, phép so `hash_diff` sẽ so với sai phiên bản. Đợt sửa dữ liệu FR-14 dùng `load_date` mới nên không bị ảnh hưởng.
+
+## 8. Vòng 4: làm một người (29/10/2026)
+
+**R-25. Điều kiện chốt "nhóm từ 3 người" không đạt.** Đồ án làm một người, môn Kỹ thuật xử lý dữ liệu, 10–15 giờ/tuần. Ước tính cho phạm vi bản 1.4 là 100–110 giờ, vượt sức chứa khi một người làm.
+
+| Thay đổi | Lý do | Ảnh hưởng |
+| --- | --- | --- |
+| Cắt FR-11 (`esat_loan_servicer`), FR-18 (dashboard Metabase), FR-20 (thực nghiệm 3, 5) | Ba mục Should, theo đúng thứ tự cắt giảm ở P6; tiết kiệm khoảng 12–18 giờ. `eff_sat` còn cần viết tay macro không dùng `QUALIFY` (R-26) | Không biết servicer theo từng tháng; câu hỏi 1–5 vẫn trả lời đủ qua notebook (AC-08); còn 4 thực nghiệm bắt buộc |
+| Giữ nguyên Raw Vault: 3 Hub, 2 Link, 5 Satellite | Spike cho thấy mỗi bảng chỉ là một lời gọi macro (khoảng 1 giờ kể cả test); cắt còn 2 Hub, 1 Link, 3 Satellite chỉ tiết kiệm 3–5 giờ | `link_loan_servicer` vẫn ghi nhận mọi cặp khoản vay × servicer, dùng làm ví dụ lịch sử khi vấn đáp |
+| Bỏ MinIO: Delta lưu trên volume cục bộ, đường dẫn trong `conf/pipeline.yml` | Bớt một service, bớt hadoop-aws và cấu hình `s3a://`, là rủi ro phiên bản đã nêu ở mục 10 Kế hoạch | NFR "Khả chuyển" đổi: chuyển sang S3 hoặc MinIO chỉ đổi cấu hình và thêm hadoop-aws |
+| Airflow chạy LocalExecutor, DAG tuyến tính | Đỡ RAM, đỡ cấu hình | Không ảnh hưởng FR-21 |
+| AC-07, NFR "Tái lập", cổng C4, C6: "một thành viên khác chạy lại theo README" thành "chạy lại theo README từ một bản clone sạch, sau `docker compose down -v`" | Không có thành viên khác | Tiêu chí yếu hơn: cùng máy, cùng người. Báo cáo ghi rõ hạn chế này |
+
+*Phương án đã cân nhắc và không chọn:* thu Raw Vault còn 2 Hub, 1 Link, 3 Satellite theo phương án "nhóm 2 người" ở mục 12 Kế hoạch (tiết kiệm ít, mất ví dụ servicer); bỏ Airflow, chạy bằng script (trái quyết định đã chốt về điều phối, và FR-21 là Must).
+
+**Hạn nộp:** C0 trễ khoảng 3 tuần so với kế hoạch (bắt đầu 03/10/2026). Ngày 29/10/2026 chủ repo quyết định không cắt thêm: giữ phạm vi trên, làm đầy đủ.

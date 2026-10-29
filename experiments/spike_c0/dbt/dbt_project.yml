@@ -1,0 +1,25 @@
+name: spike
+version: "0.1.0"
+profile: spike
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+models:
+  spike:
+    +file_format: delta
+    staging:
+      +materialized: view
+    raw_vault:
+      +materialized: incremental
+      # Bật CTE valid_stg trong spark__sat: chạy lại kỳ cũ không chèn lại dòng (R-08)
+      +meta:
+        apply_source_filter: true
+
+vars:
+  # Quy tắc hash chốt ở PRD FR-06: sha2-256, upper, null thành ^^, nối bằng ||
+  hash: SHA
+  concat_string: "||"
+  null_placeholder_string: "^^"
+  hash_content_casing: UPPER
+  # Tháng báo cáo nạp trong lần chạy này, truyền bằng --vars
+  months: [201904]

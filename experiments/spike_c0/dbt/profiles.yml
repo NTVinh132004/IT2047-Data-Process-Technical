@@ -1,0 +1,12 @@
+spike:
+  target: thrift
+  outputs:
+    thrift:
+      type: spark
+      method: thrift
+      host: thrift
+      port: 10000
+      schema: spike
+      threads: 2
+      connect_retries: 10
+      connect_timeout: 10

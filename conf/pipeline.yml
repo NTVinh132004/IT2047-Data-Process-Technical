@@ -1,0 +1,12 @@
+# Cấu hình chung của pipeline. Đổi giá trị ở đây, không sửa code (FR-03).
+dataset:
+  vintage: 2019
+  source: sample            # sample | historical
+paths:
+  raw: data/raw/sample_2019
+  lake: data/lake           # Delta trên ổ đĩa cục bộ (R-25); S3/MinIO thì đổi thành s3a://<bucket>
+periods:
+  unit: quarter             # một lần chạy DAG = một quý báo cáo
+load_date:
+  # load_date của tháng báo cáo m = ngày 1 của tháng m + lag_months (PRD mục 6, R-01)
+  lag_months: 1

@@ -1,0 +1,28 @@
+# Ánh xạ tên cột File Layout trước Release 47 sang Release 47 (FR-05).
+# Pipeline dùng tên snake_case trong conf/schema/*.yml; bảng này ghi lại tên gốc đã đổi để truy vết
+# và để đọc file tải trước 07/2026 (khi đó cần thêm layout cũ, xem docs/tu-dien-du-lieu.md mục 6).
+orig:
+  "Credit Score": "Classic FICO"
+  "First Time Homebuyer Flag": "First Time Homebuyer Indicator"
+  "Prepayment Penalty Mortgage (PPM) Flag": "Prepayment Penalty Indicator"
+  "Loan Sequence Number": "Loan Identifier"
+perf:
+  "Loan Sequence Number": "Loan Identifier"
+  "Monthly Reporting Period": "Period"
+  "Defect Settlement Date": "Underwriting Defect and Major Servicing Defect Settlement Date"
+  "Current Deferred UPB": "Current Non-Interest Bearing UPB"
+  "Expenses": "Total Expenses"
+  "Actual Loss Calculation": "Actual Loss"
+  "Modification Cost": "Cumulative Modification Costs"
+  "Step Modification Flag": "Interest Rate Step Indicator"
+  "Deferred Payment Plan": "Payment Deferral Flag"
+  "Borrower Assistance Status Code": "Borrower Assistance Plan"
+  "Current Month Modification Cost": "Current Period Modification Costs"
+  "Interest Bearing UPB": "Current Interest Bearing UPB"
+# Cột đổi vị trí giữa hai file ở Release 47
+moved:
+  "Servicer Name": { from: "orig vị trí 25", to: "perf vị trí 34" }
+  "Mortgage Insurance Cancellation Indicator": { from: "orig vị trí 32", to: "perf vị trí 33" }
+added:
+  orig: ["VantageScore 4.0 (vị trí 31)"]
+  perf: ["Bankruptcy Cramdown Costs (vị trí 35)"]
