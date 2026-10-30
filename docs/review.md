@@ -99,3 +99,33 @@ Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby n
 *Phương án đã cân nhắc và không chọn:* thu Raw Vault còn 2 Hub, 1 Link, 3 Satellite theo phương án "nhóm 2 người" ở mục 12 Kế hoạch (tiết kiệm ít, mất ví dụ servicer); bỏ Airflow, chạy bằng script (trái quyết định đã chốt về điều phối, và FR-21 là Must).
 
 **Hạn nộp:** C0 trễ khoảng 3 tuần so với kế hoạch (bắt đầu 03/10/2026). Ngày 29/10/2026 chủ repo quyết định không cắt thêm: giữ phạm vi trên, làm đầy đủ.
+
+## 9. Giai đoạn 1: quyết định hạ tầng và Bronze (29/10/2026)
+
+**R-27.** Các quyết định khi dựng `docker-compose.yml` và job Bronze. Không đổi FR hay AC, nhưng đổi kiến trúc ở mục 5 Kế hoạch.
+
+| # | Quyết định | Lý do | Phương án không chọn |
+| --- | --- | --- | --- |
+| 1 | Không dựng Spark standalone cluster (Kế hoạch ghi 1 master + 2 worker). Hai Spark local mode, mỗi cái một JVM: Thrift Server cho dbt (`local[4]`, 3 GB) và job PySpark trong container Airflow scheduler (3 GB). Hai bên dùng chung Hive Metastore và volume `/lake` | Thrift Server chạy trên cluster sẽ giữ executor suốt thời gian sống và tranh tài nguyên với job Bronze. Trên một máy, cluster không thêm năng lực tính toán, chỉ thêm JVM và RAM | Standalone cluster với dynamic allocation (phức tạp, tốn RAM với 12 GB) |
+| 2 | Airflow 3.3.2, LocalExecutor, tách api-server, scheduler, dag-processor; đăng nhập bằng FAB auth manager. Task chạy trong container scheduler nên image có Java 17 và PySpark 3.5.5 | Bản 3.x hiện hành; bản 2.x đã hết hỗ trợ | `airflow standalone` (gộp mọi thứ, chỉ dành cho thử nghiệm) |
+| 3 | Hive Metastore 3.1.3 trên PostgreSQL, với script khởi động tự viết | Client Hive tích hợp trong Spark 3.5 là 2.3.9, tương thích metastore 3.1. Entrypoint gốc chạy `-initSchema` mỗi lần khởi động và thoát khi schema đã có | Metastore 4.0 (rủi ro tương thích với client 2.3.9); Derby nhúng (không dùng chung được giữa hai JVM) |
+| 4 | `load_control` là bảng `control.load_control` trong database `analytics` (PostgreSQL) | Airflow đọc và ghi nhật ký chạy mà không cần khởi động Spark; báo cáo chất lượng (G5) đọc bằng SQL | Bảng Delta (mỗi lần ghi nhật ký phải khởi động một SparkSession) |
+| 5 | Bronze giữ mọi cột dạng chuỗi, thêm `_field_count` và `_raw` (dòng gốc, chỉ khi số trường lệch). File được đọc dạng text rồi tách theo dấu `\|` | Cổng chất lượng (FR-07) cần thấy giá trị sai kiểu và dòng sai số trường. Reader CSV với schema cố định tự lấp null hoặc cắt bớt trường, làm mất bằng chứng | Ép kiểu ở Bronze; reader CSV với `columnNameOfCorruptRecord` (không bắt được dòng thừa trường) |
+| 6 | Bảng Bronze là bảng Delta được quản lý trong database `bronze` của metastore, phân vùng theo `period`; ghi đè lát bằng `replaceWhere` | dbt (C2) đọc Bronze qua metastore; phân vùng theo kỳ giúp `replaceWhere` chỉ chạm một thư mục | Bảng theo đường dẫn (dbt khó tham chiếu) |
+| 7 | Mọi container chạy uid 1000 | Tránh lỗi quyền giữa Hive, Spark và Airflow trên cùng thư mục `data/lake` | Chạy root (file trên máy thuộc root, khó xóa) |
+
+**Hệ quả cần theo dõi:** mỗi lần chạy Bronze phải quét toàn bộ file perf, để lấy lát tháng và để tìm tháng perf đầu tiên của từng khoản vay (lát orig, R-10). Trên bộ đầy đủ (8 GB) điều này lặp lại ở cả 29 kỳ. Đã xử lý ở R-28.
+
+**R-28. Tầng landing: chuyển file TXT sang Delta một lần cho mỗi bộ dữ liệu.**
+
+| Vấn đề | Quyết định |
+| --- | --- |
+| Bronze đọc thẳng file TXT ở mỗi kỳ. File là một khối không phân vùng, nên mỗi kỳ quét toàn bộ file hai lần (lấy lát tháng, tìm tháng perf đầu tiên cho lát orig). Trên bộ đầy đủ là 8 GB × 2 × 29 kỳ | Thêm `ingestion/landing.py`: đọc TXT một lần, ghi `landing.<source>_orig`, `landing.<source>_perf` (phân vùng theo tháng báo cáo, mỗi tháng một file) và `landing.<source>_loan_first_month`. Bronze đọc từ landing, mỗi kỳ chỉ đọc 3 thư mục tháng |
+| Landing phải luôn khớp với nguồn và schema | Dấu vân tay (tên, kích thước, thời điểm sửa của file TXT và nội dung `conf/schema`) lưu trong file trạng thái nằm trong thư mục database landing. Task `landing` của DAG chỉ dựng lại khi dấu vân tay đổi; nếu không đổi thì không khởi động Spark (0,3 giây) |
+| Landing không được làm mất bằng chứng cho cổng chất lượng | Giữ nguyên quy tắc của Bronze: mọi cột dạng chuỗi, `_field_count`, `_raw`, `source_file` trỏ về file TXT gốc. AC-01 vẫn đối chiếu với file TXT gốc |
+
+*Số đo trên bộ mẫu (29/10/2026):* dựng landing một lần mất 27 giây. Task Bronze mỗi kỳ: 25,9 giây (trung vị 13 kỳ) khi đọc TXT, 23,5 giây khi đọc landing. Đo tách từng bước cho thấy trên bộ mẫu thời gian chủ yếu là chi phí cố định của Spark: truy vấn đầu tiên trong JVM mất khoảng 9 giây khởi động nguội, còn khi đã "nóng" thì đọc lát perf 0,5 giây và lát orig 0,8 giây. Ước tính ban đầu "landing giảm còn 8–12 giây mỗi kỳ trên bộ mẫu" là sai. Giá trị của landing nằm ở bộ đầy đủ, nơi phần đọc dữ liệu tăng khoảng 36 lần; thực nghiệm 1 (C5) đo con số này.
+
+*Phương án không chọn:* cache dữ liệu perf trong một job (chỉ gộp hai lượt quét thành một, vẫn quét toàn bộ file mỗi kỳ); một SparkSession sống lâu cho mọi kỳ (giảm chi phí khởi động, nhưng phá cấu trúc một DAG run cho một kỳ và việc chạy lại từng kỳ, FR-21).
+
+*Sửa kèm:* Delta cập nhật schema bảng trong metastore sau mỗi lần ghi; metastore 3.1 mặc định từ chối (`hive.metastore.disallow.incompatible.col.type.changes`) và Delta in stack trace dài (không làm hỏng dữ liệu). Đặt cấu hình này thành `false` để log sạch.

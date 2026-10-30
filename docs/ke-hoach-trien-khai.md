@@ -105,7 +105,7 @@ Toàn bộ chạy bằng Docker Compose trên máy cá nhân, không dùng cloud
 
 | Thành phần | Công nghệ | Ghi chú |
 | --- | --- | --- |
-| Xử lý | PySpark (Spark 3.5.5, Delta 3.3.2) | 1 master + 2 worker. Không dùng 3.5.7: lỗi `CREATE OR REPLACE` với Delta 3.3.2 (R-26) |
+| Xử lý | PySpark (Spark 3.5.5, Delta 3.3.2) | Hai Spark local mode: Thrift Server cho dbt và job PySpark trong Airflow, chung Hive Metastore (R-27). Không dùng 3.5.7: lỗi `CREATE OR REPLACE` với Delta 3.3.2 (R-26) |
 | Lưu trữ | Ổ đĩa cục bộ (volume Docker) | Đường dẫn trong `conf/`; chuyển sang S3 hoặc MinIO qua `s3a://` chỉ đổi cấu hình (R-25) |
 | Định dạng bảng | Delta Lake | `MERGE` cho nạp tăng dần, time travel để truy vết |
 | Hash key | `sha2(…, 256)` của Spark | Chuẩn hóa: trim, upper, null thay bằng `^^`, nối bằng `\|\|` trước khi hash; chốt một lần, không đổi sau khi đã nạp |
@@ -114,7 +114,7 @@ Toàn bộ chạy bằng Docker Compose trên máy cá nhân, không dùng cloud
 | Dashboard | Notebook (Metabase đã cắt, R-25) | Đọc mart trong PostgreSQL |
 | Quản lý mã nguồn | GitHub | Không đưa dữ liệu lên repo |
 | Mô hình hóa | dbt-core 1.12.5 + dbt-spark 1.11.0, automate-dv 0.11.5 | Staging, Raw Vault, Business Vault, Gold; dbt test, dbt docs. Cần lớp tương thích dbt-spark (R-26) |
-| Điều phối | Apache Airflow (LocalExecutor) | DAG tuyến tính theo kỳ nạp, retry, theo dõi trạng thái |
+| Điều phối | Apache Airflow 3.3.2 (LocalExecutor) | DAG tuyến tính theo kỳ nạp, retry, theo dõi trạng thái; task Spark chạy trong container scheduler (R-27) |
 | Catalog | Hive Metastore + Spark Thrift Server | dbt kết nối Spark qua Thrift; metadata lưu trên PostgreSQL |
 
 **Yêu cầu máy chạy chính:** RAM 16 GB; ổ cứng trống ít nhất 3–4 lần dung lượng dữ liệu thô của bộ đầy đủ.
@@ -159,11 +159,12 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 **Giai đoạn 1: Hạ tầng và Bronze (tuần 2)**
 
-- [ ] Docker Compose: Spark, PostgreSQL, Hive Metastore, Thrift Server, Airflow (LocalExecutor), Jupyter; đọc/ghi Delta trên volume cục bộ
-- [ ] Khai báo schema cho orig và perf, chuẩn hóa tên cột theo Release 47
-- [ ] Tạo bảng load\_control và DAG Airflow điều phối theo kỳ; nạp Bronze theo kỳ (ghi đè lát của kỳ), thêm `load_date` theo tháng, `record_source`, `source_file`
+- [x] Docker Compose: Spark, PostgreSQL, Hive Metastore, Thrift Server, Airflow (LocalExecutor); đọc/ghi Delta trên volume cục bộ. Jupyter để giai đoạn 4 (notebook)
+- [x] Khai báo schema cho orig và perf, chuẩn hóa tên cột theo Release 47
+- [x] Tạo bảng load\_control và DAG Airflow điều phối theo kỳ; nạp Bronze theo kỳ (ghi đè lát của kỳ), thêm `load_date` theo tháng, `record_source`, `source_file`
+- [x] Landing: chuyển file TXT sang Delta phân vùng theo tháng một lần cho mỗi bộ dữ liệu; Bronze đọc từ landing (R-28)
 
-Đầu ra: Bronze đủ dòng so với file gốc (AC-01); đo thời gian baseline để hiệu chỉnh mục tiêu 45 phút.
+Đầu ra: Bronze đủ dòng so với file gốc (AC-01); đo thời gian baseline để hiệu chỉnh mục tiêu 45 phút. **Cổng C1 đạt 30/10/2026:** 29 kỳ bộ mẫu, Bronze nạp tổng 788,6 giây (trung vị 26,9 giây mỗi kỳ, chủ yếu là chi phí cố định của Spark, R-28).
 
 **Giai đoạn 2: Raw Vault (tuần 3)**
 

@@ -32,3 +32,9 @@ def test_load_date_unique_per_month_in_period():
     # Ba tháng của một kỳ phải có ba load_date khác nhau (R-01)
     dates = {load_date_for(m) for m in months_in_period("2020Q1")}
     assert len(dates) == 3
+
+
+@pytest.mark.parametrize("bad", ["202000", "202013", "2020AB"])
+def test_load_date_rejects_invalid_month(bad):
+    with pytest.raises(ValueError):
+        load_date_for(bad)

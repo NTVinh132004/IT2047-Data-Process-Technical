@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!-- Spark (Thrift Server và job PySpark) dùng chung Hive Metastore -->
+<configuration>
+  <property><name>hive.metastore.uris</name><value>thrift://hive-metastore:9083</value></property>
+  <property><name>hive.metastore.warehouse.dir</name><value>/lake/warehouse</value></property>
+</configuration>

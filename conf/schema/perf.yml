@@ -1,10 +1,10 @@
 # File perf theo File Layout Release 47 (07/2026): 35 trường, không tiêu đề, phân tách bằng |.
 # Quy ước cột như conf/schema/orig.yml. Các khoản tiền thu hồi ghi âm, chi phí và tổn thất ghi dương (Release 47).
-file_pattern: { sample: "sample_perf_{vintage}.txt", historical: "perf_{vintage}Q{q}.txt" }
+file_pattern: { sample: "sample_perf_{vintage}.txt", historical: "perf_{vintage}Q?.txt" }
 field_count: 35
 columns:
-  - { pos: 1,  name: loan_id,                     source: "Loan Identifier",                      type: string,  pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan }
-  - { pos: 2,  name: reporting_period,            source: "Period",                               type: yyyymm,                                     target: "(trục thời gian nghiệp vụ)" }
+  - { pos: 1,  name: loan_id,                     source: "Loan Identifier",                      type: string,  pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan, role: loan_key }
+  - { pos: 2,  name: reporting_period,            source: "Period",                               type: yyyymm,                                     target: "(trục thời gian nghiệp vụ)", role: reporting_period }
   - { pos: 3,  name: current_upb,                 source: "Current Actual UPB",                   type: decimal, domain: [0, null],                 target: sat_loan_balance }
   - { pos: 4,  name: delinquency_status,          source: "Current Loan Delinquency Status",      type: string,  missing: ["XX"], pattern: "^(\\d{2}|RA)$", target: sat_loan_delinquency }
   - { pos: 5,  name: loan_age,                    source: "Loan Age",                             type: int,                                        target: sat_loan_balance }

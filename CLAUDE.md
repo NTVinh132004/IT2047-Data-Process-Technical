@@ -17,17 +17,19 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 - Đổi FR, AC hoặc kiến trúc: ghi vào `docs/review.md`, sửa PRD, Kế hoạch và test cổng trong cùng một pull request, tăng phiên bản PRD.
 - Lệnh `make` chưa cài đặt phải thoát với mã lỗi, không giả vờ chạy được.
 - Không commit dữ liệu (`data/` đã được ignore). Tài liệu viết bằng tiếng Việt.
-- `ingestion/periods.py::load_date_for` để chủ repo tự cài đặt; đừng viết thay khi chưa được yêu cầu.
 
-## Trạng thái (29/10/2026)
+## Trạng thái (30/10/2026)
 
-Cổng C0 đạt ngày 29/10/2026 (PRD 1.5, `tests/gates/results/c0-20261029-095352.json`). Đang ở giai đoạn 1: docker compose, Bronze, `load_control`, khung DAG Airflow; nghiệm thu ở C1.
+Cổng C0 đạt 29/10/2026, cổng C1 đạt 30/10/2026 (`tests/gates/results/`). Đang ở giai đoạn 2: cổng chất lượng PySpark + quarantine, staging dbt, Raw Vault; nghiệm thu ở C2.
 - Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
+- Fixture lỗi giả lập cho C2: `tests/fixtures/quality/` (sinh bằng `make_fixture.py`, kết quả mong đợi trong `expected.yml`)
 
 ## Môi trường
 
 - Bộ đầy đủ 2019 (Release 47, 8,2 GB): `/mnt/f/Thac si/Data processing technical/Final_project/Dataset/historical_data/unzip/historical_data_2019/`
 - WSL 12 GB RAM (`.wslconfig`); Docker Engine cài trong Ubuntu, không dùng Docker Desktop
 - `uv` ở `~/.local/bin`; Python 3.11 qua `uv run`; `make gate`/`make test` dùng `uv run pytest`
-- Spike: `cd experiments/spike_c0 && docker compose up -d`, rồi `make gate N=0` (khoảng 2 phút)
+- Stack chính: `make up`; nạp: `make run PERIOD=...`, `make run-all`; Airflow UI http://localhost:8080
+- `make gate N=0` tự bật và tắt stack spike (khoảng 3 phút); `make gate N=1` khoảng 2 phút khi đã nạp đủ 29 kỳ
+- Pipeline: TXT → landing (Delta, phân vùng theo tháng, dựng lại khi nguồn đổi) → Bronze (theo kỳ) (R-27, R-28)
 - automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `gen_shim.py`, `spark__hub`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)

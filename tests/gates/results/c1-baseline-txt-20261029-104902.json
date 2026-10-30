@@ -1,0 +1,79 @@
+{
+  "gate": "C1",
+  "note": "Baseline trước R-28: Bronze đọc thẳng file TXT ở mỗi kỳ. Cổng dừng giữa chừng theo quyết định chuyển sang landing; chỉ có số đo, không có kết quả kiểm thử.",
+  "ran_at": "2026-10-29T10:49:02",
+  "dataset": "sample",
+  "bronze_seconds": {
+    "periods_measured": 13,
+    "median": 25.9,
+    "min": 25.2,
+    "max": 29.3
+  },
+  "runs": [
+    {
+      "period": "2019Q2",
+      "status": "SUCCESS",
+      "duration_s": 25.8
+    },
+    {
+      "period": "2019Q1",
+      "status": "SUCCESS",
+      "duration_s": 25.2
+    },
+    {
+      "period": "2019Q3",
+      "status": "SUCCESS",
+      "duration_s": 25.4
+    },
+    {
+      "period": "2019Q4",
+      "status": "SUCCESS",
+      "duration_s": 25.5
+    },
+    {
+      "period": "2020Q1",
+      "status": "SUCCESS",
+      "duration_s": 27.0
+    },
+    {
+      "period": "2020Q2",
+      "status": "SUCCESS",
+      "duration_s": 27.4
+    },
+    {
+      "period": "2020Q3",
+      "status": "SUCCESS",
+      "duration_s": 26.2
+    },
+    {
+      "period": "2020Q4",
+      "status": "SUCCESS",
+      "duration_s": 26.2
+    },
+    {
+      "period": "2021Q1",
+      "status": "SUCCESS",
+      "duration_s": 25.6
+    },
+    {
+      "period": "2021Q2",
+      "status": "SUCCESS",
+      "duration_s": 25.9
+    },
+    {
+      "period": "2021Q3",
+      "status": "SUCCESS",
+      "duration_s": 29.2
+    },
+    {
+      "period": "2021Q4",
+      "status": "SUCCESS",
+      "duration_s": 25.7
+    },
+    {
+      "period": "2022Q1",
+      "status": "SUCCESS",
+      "duration_s": 29.3
+    }
+  ]
+}
