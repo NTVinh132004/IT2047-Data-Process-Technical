@@ -17,11 +17,10 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 - Đổi FR, AC hoặc kiến trúc: ghi vào `docs/review.md`, sửa PRD, Kế hoạch và test cổng trong cùng một pull request, tăng phiên bản PRD.
 - Lệnh `make` chưa cài đặt phải thoát với mã lỗi, không giả vờ chạy được.
 - Không commit dữ liệu (`data/` đã được ignore). Tài liệu viết bằng tiếng Việt.
-- `ingestion/periods.py::load_date_for` để chủ repo tự cài đặt; đừng viết thay khi chưa được yêu cầu.
 
-## Trạng thái (29/10/2026)
+## Trạng thái (30/10/2026)
 
-Cổng C0 đạt ngày 29/10/2026 (PRD 1.5, `tests/gates/results/c0-20261029-095352.json`). Đang ở giai đoạn 1: docker compose, Bronze, `load_control`, khung DAG Airflow; nghiệm thu ở C1.
+Cổng C0, C1, C2 đạt (`tests/gates/results/`). Đang ở giai đoạn 3: Business Vault (`bsat_loan_risk`, `bsat_loan_lifecycle`), PIT, đợt sửa dữ liệu FR-14 và bảng đối chứng; nghiệm thu ở C3.
 - Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
 
 ## Môi trường
@@ -29,5 +28,10 @@ Cổng C0 đạt ngày 29/10/2026 (PRD 1.5, `tests/gates/results/c0-20261029-095
 - Bộ đầy đủ 2019 (Release 47, 8,2 GB): `/mnt/f/Thac si/Data processing technical/Final_project/Dataset/historical_data/unzip/historical_data_2019/`
 - WSL 12 GB RAM (`.wslconfig`); Docker Engine cài trong Ubuntu, không dùng Docker Desktop
 - `uv` ở `~/.local/bin`; Python 3.11 qua `uv run`; `make gate`/`make test` dùng `uv run pytest`
-- Spike: `cd experiments/spike_c0 && docker compose up -d`, rồi `make gate N=0` (khoảng 2 phút)
-- automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `gen_shim.py`, `spark__hub`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)
+- Stack chính: `make up`; nạp: `make run PERIOD=...`, `make run-all`; Airflow UI http://localhost:8080
+- `make gate N=0` tự bật và tắt stack spike (khoảng 3 phút); `make gate N=1` khoảng 2 phút khi đã nạp đủ 29 kỳ
+- Pipeline: TXT → landing → Bronze → cổng chất lượng (`quality.*_clean`/`_quarantine`) → dbt staging (bảng) → Raw Vault (R-27 đến R-30)
+- `make smoke`: landing → Bronze → cổng chất lượng trên fixture giả lập (khoảng 30 giây). `make gate N=2` khoảng 15 phút khi đã nạp đủ 29 kỳ
+- dbt chạy trong container scheduler: `/opt/dbt-venv/bin/dbt` (thư mục `/opt/project/dbt`). Model base_* sinh từ conf: `uv run python -m scripts.gen_dbt_staging`
+- Model incremental tham chiếu nguồn nhiều lần thì nguồn phải là bảng, không phải view (Spark chép cây biểu thức của view, R-30)
+- automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `scripts/gen_automate_dv_shim.py`, `spark__hub`/`spark__link`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)

@@ -18,7 +18,6 @@ services:
     volumes:
       - ../../data/raw/sample_2019:/data:ro
       - warehouse:/warehouse
-    ports: ["10000:10000", "4040:4040"]
 
   dbt:
     build: .

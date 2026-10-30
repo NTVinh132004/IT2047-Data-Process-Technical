@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spike C0: kiểm R-01 (nhiều load_date trong một stage) và R-08 (chạy lại kỳ cũ sinh 0 dòng).
-# Chạy: bash experiments/spike_c0/run_spike.sh   (cần docker compose up -d trong thư mục này)
+# Chạy: bash experiments/spike_c0/run_spike.sh   (cần docker compose up -d trong thư mục này; make gate N=0 tự làm)
 # Ghi kết quả vào results.json; thoát mã 1 nếu một kiểm thử trượt.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -9,6 +9,7 @@ dbt() { docker compose exec -T dbt dbt "$@"; }
 counts() { dbt run-operation spike_counts --vars "$TWO" | grep '^{'; }
 load() { dbt run "$@" | grep -E "Done\." ; }
 
+for _ in $(seq 1 60); do docker compose logs thrift 2>&1 | grep -q "ThriftBinaryCLIService on port 10000" && break; sleep 3; done
 dbt deps >/dev/null
 dbt run-operation create_raw >/dev/null
 

@@ -99,3 +99,64 @@ Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby n
 *Phương án đã cân nhắc và không chọn:* thu Raw Vault còn 2 Hub, 1 Link, 3 Satellite theo phương án "nhóm 2 người" ở mục 12 Kế hoạch (tiết kiệm ít, mất ví dụ servicer); bỏ Airflow, chạy bằng script (trái quyết định đã chốt về điều phối, và FR-21 là Must).
 
 **Hạn nộp:** C0 trễ khoảng 3 tuần so với kế hoạch (bắt đầu 03/10/2026). Ngày 29/10/2026 chủ repo quyết định không cắt thêm: giữ phạm vi trên, làm đầy đủ.
+
+## 9. Giai đoạn 1: quyết định hạ tầng và Bronze (29/10/2026)
+
+**R-27.** Các quyết định khi dựng `docker-compose.yml` và job Bronze. Không đổi FR hay AC, nhưng đổi kiến trúc ở mục 5 Kế hoạch.
+
+| # | Quyết định | Lý do | Phương án không chọn |
+| --- | --- | --- | --- |
+| 1 | Không dựng Spark standalone cluster (Kế hoạch ghi 1 master + 2 worker). Hai Spark local mode, mỗi cái một JVM: Thrift Server cho dbt (`local[4]`, 3 GB) và job PySpark trong container Airflow scheduler (3 GB). Hai bên dùng chung Hive Metastore và volume `/lake` | Thrift Server chạy trên cluster sẽ giữ executor suốt thời gian sống và tranh tài nguyên với job Bronze. Trên một máy, cluster không thêm năng lực tính toán, chỉ thêm JVM và RAM | Standalone cluster với dynamic allocation (phức tạp, tốn RAM với 12 GB) |
+| 2 | Airflow 3.3.2, LocalExecutor, tách api-server, scheduler, dag-processor; đăng nhập bằng FAB auth manager. Task chạy trong container scheduler nên image có Java 17 và PySpark 3.5.5 | Bản 3.x hiện hành; bản 2.x đã hết hỗ trợ | `airflow standalone` (gộp mọi thứ, chỉ dành cho thử nghiệm) |
+| 3 | Hive Metastore 3.1.3 trên PostgreSQL, với script khởi động tự viết | Client Hive tích hợp trong Spark 3.5 là 2.3.9, tương thích metastore 3.1. Entrypoint gốc chạy `-initSchema` mỗi lần khởi động và thoát khi schema đã có | Metastore 4.0 (rủi ro tương thích với client 2.3.9); Derby nhúng (không dùng chung được giữa hai JVM) |
+| 4 | `load_control` là bảng `control.load_control` trong database `analytics` (PostgreSQL) | Airflow đọc và ghi nhật ký chạy mà không cần khởi động Spark; báo cáo chất lượng (G5) đọc bằng SQL | Bảng Delta (mỗi lần ghi nhật ký phải khởi động một SparkSession) |
+| 5 | Bronze giữ mọi cột dạng chuỗi, thêm `_field_count` và `_raw` (dòng gốc, chỉ khi số trường lệch). File được đọc dạng text rồi tách theo dấu `\|` | Cổng chất lượng (FR-07) cần thấy giá trị sai kiểu và dòng sai số trường. Reader CSV với schema cố định tự lấp null hoặc cắt bớt trường, làm mất bằng chứng | Ép kiểu ở Bronze; reader CSV với `columnNameOfCorruptRecord` (không bắt được dòng thừa trường) |
+| 6 | Bảng Bronze là bảng Delta được quản lý trong database `bronze` của metastore, phân vùng theo `period`; ghi đè lát bằng `replaceWhere` | dbt (C2) đọc Bronze qua metastore; phân vùng theo kỳ giúp `replaceWhere` chỉ chạm một thư mục | Bảng theo đường dẫn (dbt khó tham chiếu) |
+| 7 | Mọi container chạy uid 1000 | Tránh lỗi quyền giữa Hive, Spark và Airflow trên cùng thư mục `data/lake` | Chạy root (file trên máy thuộc root, khó xóa) |
+
+**Hệ quả cần theo dõi:** mỗi lần chạy Bronze phải quét toàn bộ file perf, để lấy lát tháng và để tìm tháng perf đầu tiên của từng khoản vay (lát orig, R-10). Trên bộ đầy đủ (8 GB) điều này lặp lại ở cả 29 kỳ. Đã xử lý ở R-28.
+
+**R-28. Tầng landing: chuyển file TXT sang Delta một lần cho mỗi bộ dữ liệu.**
+
+| Vấn đề | Quyết định |
+| --- | --- |
+| Bronze đọc thẳng file TXT ở mỗi kỳ. File là một khối không phân vùng, nên mỗi kỳ quét toàn bộ file hai lần (lấy lát tháng, tìm tháng perf đầu tiên cho lát orig). Trên bộ đầy đủ là 8 GB × 2 × 29 kỳ | Thêm `ingestion/landing.py`: đọc TXT một lần, ghi `landing.<source>_orig`, `landing.<source>_perf` (phân vùng theo tháng báo cáo, mỗi tháng một file) và `landing.<source>_loan_first_month`. Bronze đọc từ landing, mỗi kỳ chỉ đọc 3 thư mục tháng |
+| Landing phải luôn khớp với nguồn và schema | Dấu vân tay (tên, kích thước, thời điểm sửa của file TXT và nội dung `conf/schema`) lưu trong file trạng thái nằm trong thư mục database landing. Task `landing` của DAG chỉ dựng lại khi dấu vân tay đổi; nếu không đổi thì không khởi động Spark (0,3 giây) |
+| Landing không được làm mất bằng chứng cho cổng chất lượng | Giữ nguyên quy tắc của Bronze: mọi cột dạng chuỗi, `_field_count`, `_raw`, `source_file` trỏ về file TXT gốc. AC-01 vẫn đối chiếu với file TXT gốc |
+
+*Số đo trên bộ mẫu (29/10/2026):* dựng landing một lần mất 27 giây. Task Bronze mỗi kỳ: 25,9 giây (trung vị 13 kỳ) khi đọc TXT, 23,5 giây khi đọc landing. Đo tách từng bước cho thấy trên bộ mẫu thời gian chủ yếu là chi phí cố định của Spark: truy vấn đầu tiên trong JVM mất khoảng 9 giây khởi động nguội, còn khi đã "nóng" thì đọc lát perf 0,5 giây và lát orig 0,8 giây. Ước tính ban đầu "landing giảm còn 8–12 giây mỗi kỳ trên bộ mẫu" là sai. Giá trị của landing nằm ở bộ đầy đủ, nơi phần đọc dữ liệu tăng khoảng 36 lần; thực nghiệm 1 (C5) đo con số này.
+
+*Phương án không chọn:* cache dữ liệu perf trong một job (chỉ gộp hai lượt quét thành một, vẫn quét toàn bộ file mỗi kỳ); một SparkSession sống lâu cho mọi kỳ (giảm chi phí khởi động, nhưng phá cấu trúc một DAG run cho một kỳ và việc chạy lại từng kỳ, FR-21).
+
+*Sửa kèm:* Delta cập nhật schema bảng trong metastore sau mỗi lần ghi; metastore 3.1 mặc định từ chối (`hive.metastore.disallow.incompatible.col.type.changes`) và Delta in stack trace dài (không làm hỏng dữ liệu). Đặt cấu hình này thành `false` để log sạch.
+
+## 10. Giai đoạn 2: cổng chất lượng và Raw Vault (30/10/2026)
+
+**R-29.** Các quyết định khi cài cổng chất lượng (FR-07) và Raw Vault. Không đổi FR hay AC.
+
+| # | Quyết định | Lý do |
+| --- | --- | --- |
+| 1 | Cổng chất lượng ghi `quality.<x>_clean` (dòng hợp lệ, giữ dạng chuỗi như Bronze) và `quality.<x>_quarantine` (thêm `_reject_reason`, `_reject_column`), phân vùng theo kỳ, ghi đè lát bằng `replaceWhere` | dbt chỉ đọc bảng clean nên dòng lỗi không thể vào Raw Vault; AC-06 kiểm được bằng phép cộng; chạy lại kỳ không nhân đôi (R-09) |
+| 2 | Luật đọc từ `conf/schema` (`type`, `domain`, `values`, `missing`, `pattern`, `nullable`), không viết cứng trong code | Từ điển, schema và cổng chất lượng không thể lệch nhau; đổi luật chỉ sửa `conf/` (FR-03) |
+| 3 | Mỗi dòng lỗi mang một lý do chính, theo thứ tự: sai số trường, sai khóa, sai kiểu, ngoài miền, trùng khóa, mồ côi | Dòng thiếu trường thì các luật sau vô nghĩa; báo nhiều lý do làm báo cáo chất lượng (G5) đếm trùng |
+| 4 | Trùng khóa: chặn mọi bản sao, nhưng chỉ đếm giữa các dòng đã qua luật trên từng dòng | Không biết bản nào đúng; một bản hỏng kiểu không làm bản đúng bị chặn oan |
+| 5 | Cột không khai báo `nullable` mà rỗng thì bị chặn với lý do `ngoai_mien` | Thiếu giá trị bắt buộc là một dạng ngoài miền; không thêm lý do mới |
+| 6 | Mồ côi so với orig ở Bronze của mọi kỳ đến kỳ hiện tại | Lát orig của một khoản vay nằm ở kỳ có tháng perf đầu tiên, luôn không muộn hơn kỳ của dòng perf. Hệ quả: phải nạp các kỳ theo thứ tự thời gian (`make run-all` đã làm vậy); nạp một kỳ muộn trước kỳ sớm hơn sẽ chặn oan dòng perf |
+| 7 | Model `base_orig`, `base_perf` (ép kiểu, đổi mã thiếu thành null) sinh từ `conf/schema` bằng `scripts/gen_dbt_staging.py`; unit test kiểm file sinh ra luôn khớp conf | Viết tay 66 cột với mã thiếu sẽ lệch ngay khi sửa conf. Số tiền dùng `DECIMAL(20, 4)` để tổng dư nợ ở Gold khớp chính xác Bronze (AC-05) |
+| 8 | `sat_loan_termination` chỉ nhận dòng có sự kiện kết thúc (`zero_balance_code` hoặc `defect_settlement_date` có giá trị) | Các tháng khác có mọi cột kết thúc đều null; nếu đưa vào, mỗi khoản vay có thêm một phiên bản "toàn null" vô nghĩa |
+| 9 | `link` viết lại cùng lõi với `hub` (`_spark_insert_new_keys`), không dùng `QUALIFY` (tiếp R-26) | Hai macro chỉ khác điều kiện khóa ngoại khác null |
+| 10 | dbt cài trong virtualenv riêng `/opt/dbt-venv` của image Airflow | dbt-core và Airflow ràng buộc khác nhau trên thư viện dùng chung |
+| 11 | `dbt-core-experimental-parser` (phụ thuộc của dbt-core 1.12) chỉ có sdist, lúc cài tải wheel 55 MB từ GitHub Releases. Wheel được tải sẵn vào `docker/airflow/wheels/` (kiểm sha256 theo `assets.json` của gói, không đưa vào git) và cài qua `--find-links` | Mạng tới GitHub Releases ngày 30/10 chỉ khoảng 40 KB/s, build treo. Thư mục rỗng thì pip tải như thường, nên không mất tính tái lập |
+| 12 | Một kỳ chỉ được coi là đã nạp xong khi có lần chạy SUCCESS đã qua cổng chất lượng (`rows_clean` có giá trị) | Các lần chạy của DAG giai đoạn 1 chưa có cổng chất lượng và Raw Vault; `make run-all` phải chạy lại chúng |
+| 13 | Unit test hash (FR-06) chạy trên SQL thật do automate_dv sinh ra (seed `hash_cases` và test `assert_hash_rules`), không viết lại thuật toán bằng Python | Viết lại bằng Python chỉ chứng minh bản Python đúng, không chứng minh dbt đúng |
+
+**R-30. Staging lưu thành bảng thay vì view.**
+
+| Vấn đề | Quyết định |
+| --- | --- |
+| Từ kỳ thứ hai, `sat_loan_property` và `sat_loan_origination` (incremental) chạy hơn 3 phút rồi làm Thrift Server tràn heap 3 GB và tắt (hai lần ngày 30/10, kỳ 2019Q2), dù dữ liệu của kỳ chỉ vài chục nghìn dòng. Riêng `EXPLAIN` (chỉ lập kế hoạch) đã mất 63 giây và đẩy bộ nhớ Thrift lên gần 3 GB. Nguyên nhân: Spark không lưu tạm CTE và view mà chép cây biểu thức gốc ở mỗi chỗ tham chiếu. Macro `sat` incremental tham chiếu stage 5 lần, mỗi bản chép mang theo 31 biểu thức `CASE` của `base_*` và các hash `CONCAT_WS` nhiều cột | `stg_orig`, `stg_perf`, `stg_perf_termination` là bảng Delta ghi lại mỗi lần chạy (chỉ chứa kỳ đang nạp); `base_*` vẫn là view. `EXPLAIN` cùng câu lệnh còn 3 giây. Hash chỉ tính một lần cho cả 10 model Raw Vault |
+| Spike C0 không bắt được lỗi này | Staging của spike chỉ hash 9 cột và không có lớp `base` ép kiểu. Bài học cho C3 (PIT, Business Vault): model incremental nào tham chiếu nguồn nhiều lần thì nguồn đó phải là bảng |
+
+Kèm theo: giới hạn lịch sử truy vấn của Spark UI (`spark.sql.ui.retainedExecutions` và các cấu hình liên quan trong `docker/spark/conf/spark-defaults.conf`). Đây là biện pháp phòng ngừa cho Thrift Server chạy lâu, không phải nguyên nhân của lần tràn heap trên; chẩn đoán ban đầu "do tích dồn lịch sử" là chưa đúng.
+
+Kế hoạch mục 3 ghi "Staging là view dbt, không lưu bền": nay staging của Raw Vault là bảng tạm, ghi đè mỗi lần chạy, vẫn không giữ lịch sử.

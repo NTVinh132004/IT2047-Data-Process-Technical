@@ -3,7 +3,8 @@
 # type: string | int | decimal | yyyymm (chuỗi 6 ký tự, giữ nguyên để không lẫn với load_date)
 # missing: mã nguồn mang nghĩa "không có"; Bronze giữ nguyên, staging đổi thành null
 # target: hub_* / link_* / sat_* nhận cột; "-" là không dùng trong MVP
-file_pattern: { sample: "sample_orig_{vintage}.txt", historical: "orig_{vintage}Q{q}.txt" }
+# Mẫu tên file (glob) trong thư mục raw của từng nguồn
+file_pattern: { sample: "sample_orig_{vintage}.txt", historical: "orig_{vintage}Q?.txt" }
 field_count: 31
 columns:
   - { pos: 1,  name: credit_score,              source: "Classic FICO",                         type: int,     missing: ["9999"], domain: [300, 850],            target: sat_loan_origination }
@@ -25,7 +26,7 @@ columns:
   - { pos: 17, name: property_state,            source: "Property State",                       type: string,                                                      target: sat_loan_property }
   - { pos: 18, name: property_type,             source: "Property Type",                        type: string,  missing: ["99"],   values: [CP, CO, PU, SF, MH],   target: sat_loan_property }
   - { pos: 19, name: postal_code,               source: "Postal Code",                          type: string,  missing: ["000"],                                  target: sat_loan_property }
-  - { pos: 20, name: loan_id,                   source: "Loan Identifier",                      type: string,                     pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan }
+  - { pos: 20, name: loan_id,                   source: "Loan Identifier",                      type: string,                     pattern: "^[FA]\\d{2}Q[1-4]\\d{7}$", target: hub_loan, role: loan_key }
   - { pos: 21, name: loan_purpose,              source: "Loan Purpose",                         type: string,  missing: ["9"],    values: [P, C, N, R],           target: sat_loan_origination }
   - { pos: 22, name: orig_loan_term,            source: "Original Loan Term",                   type: int,                        domain: [1, 480],              target: sat_loan_origination }
   - { pos: 23, name: number_of_borrowers,       source: "Number of Borrowers",                  type: int,     missing: ["99"],   domain: [1, 10],               target: sat_loan_origination }

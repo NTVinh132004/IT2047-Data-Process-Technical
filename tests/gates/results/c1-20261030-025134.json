@@ -1,0 +1,73 @@
+{
+  "gate": "C1",
+  "commit": "d7ed9de",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T02:51:34",
+  "services": {
+    "airflow-apiserver": [
+      "running",
+      "healthy",
+      0
+    ],
+    "airflow-dag-processor": [
+      "running",
+      "healthy",
+      0
+    ],
+    "airflow-scheduler": [
+      "running",
+      "healthy",
+      0
+    ],
+    "hive-metastore": [
+      "running",
+      "healthy",
+      0
+    ],
+    "postgres": [
+      "running",
+      "healthy",
+      0
+    ],
+    "spark-thrift": [
+      "running",
+      "healthy",
+      0
+    ]
+  },
+  "baseline_seconds": {
+    "per_period": {
+      "2019Q2": 26.3,
+      "2019Q3": 28.0,
+      "2019Q1": 55876.3,
+      "2019Q4": 26.9,
+      "2020Q1": 28.2,
+      "2020Q2": 28.1,
+      "2020Q3": 28.3,
+      "2020Q4": 26.8,
+      "2021Q1": 27.1,
+      "2021Q2": 29.1,
+      "2021Q3": 26.7,
+      "2021Q4": 25.6,
+      "2022Q1": 27.1,
+      "2022Q2": 26.8,
+      "2022Q3": 27.6,
+      "2022Q4": 28.0,
+      "2023Q1": 26.1,
+      "2023Q2": 27.1,
+      "2023Q3": 26.7,
+      "2023Q4": 31.4,
+      "2024Q1": 25.8,
+      "2024Q2": 26.0,
+      "2024Q3": 27.1,
+      "2024Q4": 26.9,
+      "2025Q1": 26.3,
+      "2025Q2": 26.1,
+      "2025Q3": 26.0,
+      "2025Q4": 26.0,
+      "2026Q1": 25.1
+    },
+    "total": 56633.5,
+    "max": 55876.3
+  }
+}

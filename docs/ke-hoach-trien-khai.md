@@ -74,7 +74,7 @@ Gold có thể xóa và dựng lại bất cứ lúc nào từ Silver; ngược 
 
 **Mặt phẳng điều khiển** quyết định nạp kỳ nào và ghi lại kết quả: `DAG Airflow` đọc `load_control` để lấy kỳ tiếp theo, schema và luật kiểm tra nằm trong cấu hình, dòng lỗi bị chặn ở cổng chất lượng và đưa vào quarantine. Chạy lại cùng một kỳ cho kết quả không đổi: Bronze và quarantine ghi đè lát của kỳ, Raw Vault bỏ qua dòng đã có, Business Vault và Gold dựng lại từ Raw Vault. Thứ tự task trong DAG: nạp Bronze (PySpark), cổng chất lượng (PySpark), dbt build từng tầng kèm dbt test, xuất mart sang PostgreSQL.
 
-**Cố ý không dùng:** không tách Business Vault thành một lớp lưu trữ riêng; Raw Vault và Business Vault cùng nằm trong Silver. Staging là view dbt, không lưu bền. Kiến trúc này được chốt tạm thời và sẽ điều chỉnh nếu gặp vấn đề khi triển khai.
+**Cố ý không dùng:** không tách Business Vault thành một lớp lưu trữ riêng; Raw Vault và Business Vault cùng nằm trong Silver. Staging không lưu lịch sử: view ép kiểu, cộng bảng stage ghi đè mỗi lần chạy (R-30). Kiến trúc này được chốt tạm thời và sẽ điều chỉnh nếu gặp vấn đề khi triển khai.
 
 ## 4. Mô hình Data Vault
 
@@ -105,7 +105,7 @@ Toàn bộ chạy bằng Docker Compose trên máy cá nhân, không dùng cloud
 
 | Thành phần | Công nghệ | Ghi chú |
 | --- | --- | --- |
-| Xử lý | PySpark (Spark 3.5.5, Delta 3.3.2) | 1 master + 2 worker. Không dùng 3.5.7: lỗi `CREATE OR REPLACE` với Delta 3.3.2 (R-26) |
+| Xử lý | PySpark (Spark 3.5.5, Delta 3.3.2) | Hai Spark local mode: Thrift Server cho dbt và job PySpark trong Airflow, chung Hive Metastore (R-27). Không dùng 3.5.7: lỗi `CREATE OR REPLACE` với Delta 3.3.2 (R-26) |
 | Lưu trữ | Ổ đĩa cục bộ (volume Docker) | Đường dẫn trong `conf/`; chuyển sang S3 hoặc MinIO qua `s3a://` chỉ đổi cấu hình (R-25) |
 | Định dạng bảng | Delta Lake | `MERGE` cho nạp tăng dần, time travel để truy vết |
 | Hash key | `sha2(…, 256)` của Spark | Chuẩn hóa: trim, upper, null thay bằng `^^`, nối bằng `\|\|` trước khi hash; chốt một lần, không đổi sau khi đã nạp |
@@ -114,7 +114,7 @@ Toàn bộ chạy bằng Docker Compose trên máy cá nhân, không dùng cloud
 | Dashboard | Notebook (Metabase đã cắt, R-25) | Đọc mart trong PostgreSQL |
 | Quản lý mã nguồn | GitHub | Không đưa dữ liệu lên repo |
 | Mô hình hóa | dbt-core 1.12.5 + dbt-spark 1.11.0, automate-dv 0.11.5 | Staging, Raw Vault, Business Vault, Gold; dbt test, dbt docs. Cần lớp tương thích dbt-spark (R-26) |
-| Điều phối | Apache Airflow (LocalExecutor) | DAG tuyến tính theo kỳ nạp, retry, theo dõi trạng thái |
+| Điều phối | Apache Airflow 3.3.2 (LocalExecutor) | DAG tuyến tính theo kỳ nạp, retry, theo dõi trạng thái; task Spark chạy trong container scheduler (R-27) |
 | Catalog | Hive Metastore + Spark Thrift Server | dbt kết nối Spark qua Thrift; metadata lưu trên PostgreSQL |
 
 **Yêu cầu máy chạy chính:** RAM 16 GB; ổ cứng trống ít nhất 3–4 lần dung lượng dữ liệu thô của bộ đầy đủ.
@@ -159,21 +159,22 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 **Giai đoạn 1: Hạ tầng và Bronze (tuần 2)**
 
-- [ ] Docker Compose: Spark, PostgreSQL, Hive Metastore, Thrift Server, Airflow (LocalExecutor), Jupyter; đọc/ghi Delta trên volume cục bộ
-- [ ] Khai báo schema cho orig và perf, chuẩn hóa tên cột theo Release 47
-- [ ] Tạo bảng load\_control và DAG Airflow điều phối theo kỳ; nạp Bronze theo kỳ (ghi đè lát của kỳ), thêm `load_date` theo tháng, `record_source`, `source_file`
+- [x] Docker Compose: Spark, PostgreSQL, Hive Metastore, Thrift Server, Airflow (LocalExecutor); đọc/ghi Delta trên volume cục bộ. Jupyter để giai đoạn 4 (notebook)
+- [x] Khai báo schema cho orig và perf, chuẩn hóa tên cột theo Release 47
+- [x] Tạo bảng load\_control và DAG Airflow điều phối theo kỳ; nạp Bronze theo kỳ (ghi đè lát của kỳ), thêm `load_date` theo tháng, `record_source`, `source_file`
+- [x] Landing: chuyển file TXT sang Delta phân vùng theo tháng một lần cho mỗi bộ dữ liệu; Bronze đọc từ landing (R-28)
 
-Đầu ra: Bronze đủ dòng so với file gốc (AC-01); đo thời gian baseline để hiệu chỉnh mục tiêu 45 phút.
+Đầu ra: Bronze đủ dòng so với file gốc (AC-01); đo thời gian baseline để hiệu chỉnh mục tiêu 45 phút. **Cổng C1 đạt 30/10/2026:** 29 kỳ bộ mẫu, Bronze nạp tổng 788,6 giây (trung vị 26,9 giây mỗi kỳ, chủ yếu là chi phí cố định của Spark, R-28).
 
 **Giai đoạn 2: Raw Vault (tuần 3)**
 
-- [ ] Cổng chất lượng trước dbt (mồ côi, trùng, sai kiểu, ngoài miền); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control
-- [ ] Staging dbt: tính hash key, `hash_diff`
-- [ ] Model dbt incremental: Hub, Link (chỉ thêm mới), Satellite (chỉ thêm khi `hash_diff` đổi, bỏ qua dòng đã có)
-- [ ] dbt test sau mỗi tầng; DAG dừng khi test lỗi
-- [ ] Test idempotent tự động: chạy lại kỳ gần nhất và một kỳ cũ, số dòng không đổi (AC-02)
+- [x] Cổng chất lượng trước dbt (mồ côi, trùng, sai kiểu, ngoài miền); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control
+- [x] Staging dbt: tính hash key, `hash_diff`
+- [x] Model dbt incremental: Hub, Link (chỉ thêm mới), Satellite (chỉ thêm khi `hash_diff` đổi, bỏ qua dòng đã có)
+- [x] dbt test sau mỗi tầng; DAG dừng khi test lỗi
+- [x] Test idempotent tự động: chạy lại kỳ gần nhất và một kỳ cũ, số dòng không đổi (AC-02)
 
-Đầu ra: Raw Vault nạp tăng dần qua toàn bộ các kỳ của bộ mẫu.
+Đầu ra: Raw Vault nạp tăng dần qua toàn bộ các kỳ của bộ mẫu. **Cổng C2 đạt 30/10/2026:** 29 kỳ, `hub_loan` 50.000 khoản vay, `sat_loan_balance` 1.934.614 dòng (mọi tháng), `sat_loan_delinquency` 109.997 dòng (5,7% số dòng perf nhờ `hash_diff`, P2), 0 dòng bị chặn trên bộ mẫu.
 
 **Giai đoạn 3: Business Vault và PIT (tuần 4)**
 

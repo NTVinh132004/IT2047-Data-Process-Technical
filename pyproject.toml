@@ -3,10 +3,15 @@ name = "mortgage-datavault"
 version = "0.1.0"
 description = "Lakehouse + Data Vault 2.0 trên Spark cho dữ liệu khoản vay Freddie Mac"
 requires-python = ">=3.11,<3.12"
-dependencies = []  # chốt phiên bản PySpark, Delta, dbt ở cổng C0
+dependencies = ["pyyaml>=6"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "deltalake>=1.0",
+    "psycopg[binary]>=3.2",
+    "pyarrow>=18",
+    "pytest>=8",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

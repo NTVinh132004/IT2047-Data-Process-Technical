@@ -1,0 +1,58 @@
+# Sinh bởi make_fixture.py, đừng sửa tay. Kết quả cổng chất lượng mong đợi cho kỳ 2019Q2
+period: 2019Q2
+summary:
+  orig:
+    bronze_rows: 16
+    rejected_rows: 6
+    clean_rows: 10
+  perf:
+    bronze_rows: 28
+    rejected_rows: 7
+    clean_rows: 21
+rejected:
+- table: orig
+  loan_id: F19Q29900007
+  reason: sai_so_truong
+- table: perf
+  loan_id: F19Q29900008
+  reporting_period: '201904'
+  reason: sai_so_truong
+- table: perf
+  loan_id: X19Q2BADKEY1
+  reporting_period: '201905'
+  reason: sai_khoa
+- table: orig
+  loan_id: F19Q29900009
+  reason: sai_kieu
+- table: perf
+  loan_id: F19Q29900010
+  reporting_period: '201904'
+  reason: sai_kieu
+- table: orig
+  loan_id: F19Q29900011
+  reason: ngoai_mien
+- table: orig
+  loan_id: F19Q29900012
+  reason: ngoai_mien
+- table: perf
+  loan_id: F19Q29900013
+  reporting_period: '201905'
+  reason: ngoai_mien
+- table: orig
+  loan_id: F19Q29900014
+  reason: trung_khoa
+- table: orig
+  loan_id: F19Q29900014
+  reason: trung_khoa
+- table: perf
+  loan_id: F19Q29900015
+  reporting_period: '201905'
+  reason: trung_khoa
+- table: perf
+  loan_id: F19Q29900015
+  reporting_period: '201905'
+  reason: trung_khoa
+- table: perf
+  loan_id: F19Q29900099
+  reporting_period: '201904'
+  reason: mo_coi

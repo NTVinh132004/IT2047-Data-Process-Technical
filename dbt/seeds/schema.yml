@@ -1,0 +1,8 @@
+version: 2
+seeds:
+  - name: hash_cases
+    description: Ca kiểm quy tắc hash FR-06 (ô trống là null)
+    config:
+      tags: [hash_test]
+      column_types: {case_id: int, col_a: string, col_b: string}
+      quote_columns: false

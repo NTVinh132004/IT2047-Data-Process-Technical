@@ -1,0 +1,8 @@
+case_id,col_a,col_b
+1,A,B
+2,A,B
+3,A,C
+4,A,
+5,,A
+6," a ",b
+7,,
