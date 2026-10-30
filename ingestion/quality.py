@@ -8,8 +8,8 @@ soft rule không được chặn dữ liệu.
 - Trùng khóa (khoản vay ở orig; khoản vay × tháng ở perf) giữa các dòng đã qua hard rule: các bản giống hệt được khử
   trùng lặp (giữ một, các bản còn lại vào <x>_dedup); các bản khác giá trị không nạp được vì trùng khóa Satellite nên
   mọi bản vào error mart với lý do trung_khoa.
-- Soft rule (ngoai_mien theo domain/values/pattern/nullable của conf/schema; mo_coi: perf không có orig ở Bronze):
-  dòng vẫn vào <x>_clean; mỗi vi phạm thành một dòng ở báo cáo <x>_soft_violation.
+- Soft rule (ngoài miền, perf không có orig) không xử lý ở đây: chúng là luật nghiệp vụ, tính ở Business Vault trên
+  dữ liệu Raw Vault (business_vault.quality_violation, DV-02, R-35).
 
 Lát của kỳ được ghi đè bằng replaceWhere ở mọi bảng, nên chạy lại kỳ không đổi số dòng (R-09). Với mỗi kỳ:
 clean + quarantine + dedup = Bronze (AC-06). Mã thiếu (missing) không phải lỗi.
@@ -52,28 +52,6 @@ def hard_checks(schema: SourceSchema) -> list[tuple[str, str, SparkColumn]]:
     return checks
 
 
-def soft_checks(schema: SourceSchema) -> list[tuple[str, str, SparkColumn]]:
-    """Soft rule trên từng dòng (chỉ báo cáo, không chặn): (luật, cột, điều kiện vi phạm)."""
-    checks = []
-    for c in schema.columns:
-        if c.role == "loan_key":
-            continue
-        value = F.col(c.name)
-        present = _present(value, c.spec.get("missing", []))
-        if not c.spec.get("nullable"):
-            checks.append(("ngoai_mien", c.name, value.isNull() | (value == "")))
-        if "domain" in c.spec:
-            lo, hi = c.spec["domain"]
-            number = value.cast("double")
-            out = (number < lo if lo is not None else F.lit(False)) | (number > hi if hi is not None else F.lit(False))
-            checks.append(("ngoai_mien", c.name, present & value.rlike(TYPE_PATTERNS.get(c.type, ".*")) & out))
-        if "values" in c.spec:
-            checks.append(("ngoai_mien", c.name, present & ~value.isin([str(v) for v in c.spec["values"]])))
-        if "pattern" in c.spec:
-            checks.append(("ngoai_mien", c.name, present & ~value.rlike(c.spec["pattern"])))
-    return checks
-
-
 def _first_failure(checks: list[tuple[str, str, SparkColumn]]) -> tuple[SparkColumn, SparkColumn]:
     reason = reduce(lambda acc, c: acc.when(c[2], F.lit(c[0])), checks[1:], F.when(checks[0][2], F.lit(checks[0][0])))
     column = reduce(lambda acc, c: acc.when(c[2], F.lit(c[1])), checks[1:], F.when(checks[0][2], F.lit(checks[0][1])))
@@ -101,24 +79,6 @@ def classify(df: DataFrame, schema: SourceSchema, key_columns: list[str]) -> Dat
     return df.drop("_payload", "_copies", "_variants")
 
 
-def soft_violations(clean: DataFrame, schema: SourceSchema, key_columns: list[str],
-                    orig_loans: DataFrame | None) -> DataFrame:
-    """Mỗi vi phạm soft rule của một dòng sạch thành một dòng báo cáo."""
-    entries = [F.when(cond, F.struct(F.lit(rule).alias("rule"), F.lit(col).alias("column"),
-                                     F.col(col).cast("string").alias("value")))
-               for rule, col, cond in soft_checks(schema)]
-    df = clean
-    if orig_loans is not None:
-        loan = key_columns[0]
-        df = df.join(orig_loans.select(F.col(loan).alias("_orig_loan")).distinct(), F.col(loan) == F.col("_orig_loan"), "left")
-        entries.append(F.when(F.col("_orig_loan").isNull(),
-                              F.struct(F.lit("mo_coi").alias("rule"), F.lit(loan).alias("column"),
-                                       F.col(loan).alias("value"))))
-    violations = F.filter(F.array(*entries), lambda x: x.isNotNull())
-    return (df.select(*key_columns, "period", F.explode(violations).alias("v"))
-              .select(*key_columns, "v.rule", "v.column", "v.value", "period"))
-
-
 def write_slice(df: DataFrame, table: str, period: str) -> None:
     (df.write.format("delta").mode("overwrite").option("replaceWhere", f"period = '{period}'")
      .partitionBy("period").saveAsTable(table))
@@ -133,14 +93,9 @@ def run(period: str, conf_dir: str | None = None, spark: SparkSession | None = N
     perf_table = f"{bronze['database']}.{bronze['perf_table']}"
     orig_key = [cfg.orig.column_with_role("loan_key")]
     perf_key = [cfg.perf.column_with_role("loan_key"), cfg.perf.column_with_role("reporting_period")]
-    # Mồ côi chỉ còn là báo cáo (soft rule) nên so với orig ở Bronze của mọi kỳ, không phụ thuộc thứ tự nạp
-    all_orig = spark.table(orig_table).withColumnRenamed(orig_key[0], perf_key[0])
 
     counts = {}
-    for kind, table, schema, key, orig_loans in (
-        ("orig", orig_table, cfg.orig, orig_key, None),
-        ("perf", perf_table, cfg.perf, perf_key, all_orig),
-    ):
+    for kind, table, schema, key in (("orig", orig_table, cfg.orig, orig_key), ("perf", perf_table, cfg.perf, perf_key)):
         classified = classify(spark.table(table).where(F.col("period") == period), schema, key).cache()
         base = f"{database}.{kind}"
         clean = classified.where(F.col("_reject_reason").isNull() & ~F.col("_is_duplicate_copy"))
@@ -148,10 +103,8 @@ def run(period: str, conf_dir: str | None = None, spark: SparkSession | None = N
         write_slice(classified.where(F.col("_reject_reason").isNotNull()).drop("_is_duplicate_copy"), f"{base}_quarantine", period)
         write_slice(classified.where(F.col("_is_duplicate_copy")).drop("_reject_reason", "_reject_column", "_is_duplicate_copy"),
                     f"{base}_dedup", period)
-        write_slice(soft_violations(spark.table(f"{base}_clean").where(F.col("period") == period), schema, key, orig_loans),
-                    f"{base}_soft_violation", period)
         classified.unpersist()
-        for suffix in ("clean", "quarantine", "dedup", "soft_violation"):
+        for suffix in ("clean", "quarantine", "dedup"):
             counts[f"{kind}_{suffix}"] = spark.table(f"{base}_{suffix}").where(F.col("period") == period).count()
     counts["rows_clean"] = counts["orig_clean"] + counts["perf_clean"]
     counts["rows_rejected"] = counts["orig_quarantine"] + counts["perf_quarantine"]

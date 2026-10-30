@@ -24,7 +24,8 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 
 ## Trạng thái (30/10/2026)
 
-Cổng C0, C1, C2 đạt (`tests/gates/results/`). Đang ở giai đoạn 3: Business Vault (`bsat_loan_risk`, `bsat_loan_lifecycle`), PIT, đợt sửa dữ liệu FR-14 và bảng đối chứng; nghiệm thu ở C3.
+Cổng C0–C3 đạt trên kiến trúc R-33 (`tests/gates/results/`). Đang hoàn tất R-34 (xử lý theo lô Raw Vault/Business Vault) và R-35 (mã thiếu giữ thô tới Raw Vault, zero key, soft rule thành view `business_vault.quality_violation`), chạy lại C2, C3. Kế tiếp: giai đoạn 4 (C4).
+- Tầng phải dựng lại vì đổi model: `python -m ingestion.control invalidate --layers raw_vault,business_vault --reason ...` rồi `make run-all`; không chạy lại tầng dưới
 - Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
 
 ## Môi trường

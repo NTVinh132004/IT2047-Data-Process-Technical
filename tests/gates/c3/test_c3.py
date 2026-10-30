@@ -113,7 +113,7 @@ def test_ac04_pit_matches_bronze(loaded):
         "   JOIN raw_vault.sat_loan_balance b ON b.LOAN_HK = p.LOAN_HK AND b.load_date = p.SAT_LOAN_BALANCE_LDTS"
         "   JOIN raw_vault.sat_loan_delinquency d ON d.LOAN_HK = p.LOAN_HK AND d.load_date = p.SAT_LOAN_DELINQUENCY_LDTS),"
         " bronze AS (SELECT o.loan_id, o.load_date, CAST(o.current_upb AS DECIMAL(20, 4)) AS current_upb,"
-        "   CAST(o.loan_age AS INT) AS loan_age, NULLIF(o.delinquency_status, 'XX') AS delinquency_status"
+        "   CAST(o.loan_age AS INT) AS loan_age, o.delinquency_status"  # Raw Vault giữ mã thiếu như nguồn (R-35)
         "   FROM bronze.perf o JOIN loans l ON l.loan_id = o.loan_id)"
         " SELECT COUNT(*) AS bronze_rows,"
         "   SUM(CASE WHEN v.loan_id IS NULL THEN 1 ELSE 0 END) AS missing_in_pit,"
@@ -124,6 +124,13 @@ def test_ac04_pit_matches_bronze(loaded):
     RESULT["ac04"] = rows
     assert int(rows["bronze_rows"]) > 0
     assert int(rows["missing_in_pit"]) == 0 and int(rows["mismatched"]) == 0, rows
+
+
+def test_quality_violation_report(loaded):
+    """Soft rule ở Business Vault (R-35): view đọc được; ghi số vi phạm theo luật vào kết quả cổng. Logic từng luật được
+    kiểm bằng dbt unit test quality_violation_soft_rules (chạy trong dbt build và dbt test)."""
+    rows = spark_sql("SELECT rule, column_name, COUNT(*) AS n FROM business_vault.quality_violation GROUP BY rule, column_name")
+    RESULT["quality_violation"] = rows
 
 
 def test_dbt_tests_business_vault_all_pass(loaded):

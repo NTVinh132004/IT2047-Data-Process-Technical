@@ -3,7 +3,7 @@
 - Unit test hash (FR-06), chạy trên SQL thật do automate_dv sinh ra
 - Cổng chất lượng chặn đúng từng dòng lỗi của bộ fixture giả lập (make smoke)
 - AC-06 ở mọi kỳ: dòng sạch + quarantine (hard rule) + bản sao khử trùng lặp = dòng Bronze; không dòng quarantine nào
-  vào Raw Vault; dòng vi phạm soft rule vẫn vào Raw Vault (FR-07, R-33)
+  vào Raw Vault. Cổng chất lượng chỉ áp hard rule; soft rule kiểm ở Business Vault (FR-07, R-33, R-35)
 - AC-03: số khoản vay trong hub_loan
 - AC-02: chạy lại kỳ gần nhất và một kỳ cũ sinh 0 dòng mới ở Hub, Link, Satellite
 - 100% dòng Raw Vault có load_date, record_source
@@ -114,13 +114,11 @@ def test_ac06_every_period(loaded, cfg):
         c = delta_rows_per_period(quality, f"{kind}_clean")
         q = delta_rows_per_period(quality, f"{kind}_quarantine")
         d = delta_rows_per_period(quality, f"{kind}_dedup")
-        v = delta_rows_per_period(quality, f"{kind}_soft_violation")
         for p in periods:
             totals[f"{kind}_bronze"] += b[p]
             totals[f"{kind}_clean"] += c[p]
             totals[f"{kind}_quarantine"] += q[p]
             totals[f"{kind}_dedup"] += d[p]
-            totals[f"{kind}_soft_violation"] += v[p]
             if b[p] != c[p] + q[p] + d[p]:
                 mismatches[f"{kind} {p}"] = {"bronze": b[p], "clean": c[p], "quarantine": q[p], "dedup": d[p]}
     RESULT["ac06_totals"] = dict(totals)

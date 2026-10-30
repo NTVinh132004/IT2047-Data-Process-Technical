@@ -1,8 +1,8 @@
 """Kiểm nhanh luồng landing → Bronze → cổng chất lượng trên bộ fixture giả lập (make smoke).
 
 Dùng bản sao conf/ trỏ tới tests/fixtures/quality và các database *_smoke, nên không đụng dữ liệu thật.
-So error mart (khoản vay, tháng, lý do), bản sao bị khử trùng lặp, báo cáo vi phạm soft rule và số dòng sạch
-với tests/fixtures/quality/expected.yml.
+So error mart (khoản vay, tháng, lý do), bản sao bị khử trùng lặp và số dòng sạch với tests/fixtures/quality/expected.yml.
+Dòng chỉ vi phạm soft rule phải vào bảng sạch; soft rule được kiểm ở Business Vault (dbt unit test, R-35).
 Thoát mã 1 nếu lệch. Chạy trong container airflow-scheduler: python -m ingestion.smoke
 """
 import json
@@ -60,10 +60,8 @@ def main() -> int:
         got = {
             "quarantine": Counter((*key(r, kind), r["_reject_reason"]) for r in table_rows(kind, "quarantine")),
             "dedup": Counter(key(r, kind) for r in table_rows(kind, "dedup")),
-            "soft_violation": Counter((*key(r, kind), r["rule"], r["column"]) for r in table_rows(kind, "soft_violation")),
         }
-        wanted = {"quarantine": want("quarantine", ("reason",)), "dedup": want("dedup", ()),
-                  "soft_violation": want("soft_violation", ("rule", "column"))}
+        wanted = {"quarantine": want("quarantine", ("reason",)), "dedup": want("dedup", ())}
         for section in wanted:
             if got[section] != wanted[section]:
                 problems.append({f"{kind}_{section}": {"thiếu": list((wanted[section] - got[section]).elements()),

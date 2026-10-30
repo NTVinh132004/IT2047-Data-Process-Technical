@@ -16,8 +16,9 @@ vars:
   # Ghost record ở mọi Satellite (zero key, load_date 1900-01-01) để PIT trỏ tới thay vì null: mọi join là equi-join (R-33)
   enable_ghost_records: true
   system_record_value: SYSTEM
-  # Kỳ nạp DAG truyền vào (--vars '{period: 2020Q1}'); để trống thì staging lấy mọi kỳ (dựng lại toàn bộ)
-  period: ""
+  # Các kỳ của lần nạp (--vars '{periods: [2020Q1, 2020Q2]}'); job Raw Vault gom nhiều kỳ liền nhau vào một lần nạp
+  # (R-34). Để trống thì staging lấy mọi kỳ (dựng lại toàn bộ)
+  periods: []
   # Bật một test cố ý sai để kiểm DAG dừng khi dbt test lỗi (FR-22, cổng C2)
   inject_test_failure: false
 

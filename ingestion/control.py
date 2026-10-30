@@ -19,6 +19,7 @@ Dòng RUNNING quá hạn thuê (job chết, máy tắt) được đánh FAILED �
 Chạy (trong container airflow-scheduler):
   python -m ingestion.control request --all | --period 2020Q1 [--force] [--options '{"inject_test_failure": true}']
   python -m ingestion.control status [--period P]      -> JSON trạng thái từng tầng của các kỳ đã yêu cầu
+  python -m ingestion.control invalidate --layers raw_vault,business_vault --reason "..."  -> tầng phải dựng lại
 """
 import argparse
 import json
@@ -102,6 +103,29 @@ def ready_periods(layer: str, order: list[str], requests: dict[str, Request], ru
     return ready
 
 
+def ready_batch(layer: str, order: list[str], requests: dict[str, Request], runs: list[Run], now: datetime,
+                max_periods: int, corrections: set[str] = frozenset()) -> list[str]:
+    """Lô kỳ xử lý trong một lần chạy (R-34): bắt đầu từ kỳ sẵn sàng sớm nhất, nối tiếp các kỳ liền sau theo thứ tự
+    thời gian mà cũng sẽ sẵn sàng nếu các kỳ trước trong lô đã xong (đã yêu cầu, tầng trên đã xong, chưa xong tầng
+    này, không đang chạy, chưa hết số lần thử). Tầng không cần thứ tự thời gian xử lý từng kỳ. Đợt sửa dữ liệu luôn
+    đi riêng: gom chung với kỳ gốc thì một khoản vay có hai dòng nguồn trong cùng lần nạp."""
+    ready = ready_periods(layer, order, requests, runs, now)
+    if not ready:
+        return []
+    first = ready[0]
+    if layer not in CHRONOLOGICAL or first in corrections:
+        return [first]
+    batch = [first]
+    for period in order[order.index(first) + 1:]:
+        if len(batch) >= max_periods or period in corrections:
+            break
+        assumed = runs + [Run(p, layer, "SUCCESS", now, now, None) for p in batch]
+        if ready_periods(layer, [batch[-1], period], requests, assumed, now)[-1:] != [period]:
+            break
+        batch.append(period)
+    return batch
+
+
 def connect():
     return psycopg2.connect(os.environ["ANALYTICS_DSN"])
 
@@ -122,22 +146,28 @@ def request(cfg: Config, periods: list[str], force: bool, options: dict | None =
                         (period, cfg.source, force, json.dumps(options or {})))
 
 
-def claim(cfg: Config, layer: str, airflow_run_id: str | None = None) -> tuple[int, Request] | None:
-    """Nhận kỳ sẵn sàng sớm nhất của tầng: ghi dòng RUNNING có hạn thuê. Khóa advisory theo tầng chống nhận trùng."""
+def claim(cfg: Config, layer: str, airflow_run_id: str | None = None) -> list[tuple[int, Request]]:
+    """Nhận lô kỳ sẵn sàng của tầng (ready_batch): mỗi kỳ một dòng RUNNING có hạn thuê. Khóa advisory theo tầng chống
+    nhận trùng. Trả về rỗng nếu không có kỳ nào sẵn sàng."""
     now = datetime.now(timezone.utc)
     with connect() as conn, conn.cursor() as cur:
         cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"layer_run:{layer}",))
         cur.execute("UPDATE control.layer_run SET status = 'FAILED', finished_at = now(), error = 'Hết hạn thuê (job chết?)'"
                     " WHERE layer = %s AND status = 'RUNNING' AND lease_until < now()", (layer,))
         requests, runs = _load(cur, cfg.source)
-        ready = ready_periods(layer, ordered_periods(cfg), requests, runs, now)
-        if not ready:
-            return None
-        period = ready[0]
-        cur.execute("INSERT INTO control.layer_run (period, layer, status, dataset, lease_until, airflow_run_id)"
-                    " VALUES (%s, %s, 'RUNNING', %s, now() + %s, %s) RETURNING run_id",
-                    (period, layer, cfg.source, LEASE, airflow_run_id))
-        return cur.fetchone()[0], requests[period]
+        batch = ready_batch(layer, ordered_periods(cfg), requests, runs, now,
+                            cfg.pipeline.get("orchestration", {}).get("max_periods_per_batch", 1),
+                            set(cfg.pipeline.get("corrections", {})))
+        # Mọi kỳ trong lô dùng chung tùy chọn của lần build (ví dụ inject_test_failure, FR-22): cắt lô ở kỳ có tùy chọn khác
+        batch = [p for i, p in enumerate(batch)
+                 if all(requests[q].options == requests[batch[0]].options for q in batch[:i + 1])]
+        claimed = []
+        for period in batch:
+            cur.execute("INSERT INTO control.layer_run (period, layer, status, dataset, lease_until, airflow_run_id)"
+                        " VALUES (%s, %s, 'RUNNING', %s, now() + %s, %s) RETURNING run_id",
+                        (period, layer, cfg.source, LEASE, airflow_run_id))
+            claimed.append((cur.fetchone()[0], requests[period]))
+        return claimed
 
 
 def finish(run_id: int, status: str, error: str | None = None, counts: dict | None = None) -> None:
@@ -150,6 +180,18 @@ def finish(run_id: int, status: str, error: str | None = None, counts: dict | No
             " rows_in = %s, rows_clean = %s, rows_rejected = %s, bronze_orig_rows = %s, bronze_perf_rows = %s"
             " WHERE run_id = %s",
             (status, error, json.dumps(counts, default=str), *columns.values(), run_id))
+
+
+def invalidate(cfg: Config, layers: list[str], reason: str) -> int:
+    """Đánh dấu SUPERSEDED mọi lần SUCCESS của các tầng phải dựng lại (ví dụ đổi model Raw Vault). Không xóa nhật ký;
+    job coi các tầng đó là chưa xong nên make run-all chỉ chạy lại chúng, không chạy lại tầng dưới (PL-03)."""
+    unknown = set(layers) - set(LAYERS)
+    if unknown:
+        raise ValueError(f"Tầng không hợp lệ: {unknown}")
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE control.layer_run SET status = 'SUPERSEDED', error = %s"
+                    " WHERE dataset = %s AND layer = ANY(%s) AND status = 'SUCCESS'", (reason, cfg.source, layers))
+        return cur.rowcount
 
 
 def status(cfg: Config, period: str | None = None) -> list[dict]:
@@ -186,11 +228,16 @@ def main() -> None:
     target.add_argument("--period")
     req.add_argument("--force", action="store_true", help="Xử lý lại mọi tầng kể cả tầng đã xong")
     req.add_argument("--options", default="{}", help='JSON, ví dụ {"inject_test_failure": true}')
+    inv = sub.add_parser("invalidate", help="Đánh dấu các tầng phải dựng lại")
+    inv.add_argument("--layers", required=True, help="Danh sách tầng, cách nhau bằng dấu phẩy")
+    inv.add_argument("--reason", required=True)
     st = sub.add_parser("status")
     st.add_argument("--period")
     args = parser.parse_args()
     cfg = Config()
-    if args.cmd == "request":
+    if args.cmd == "invalidate":
+        print(f"Đã đánh dấu {invalidate(cfg, args.layers.split(','), args.reason)} lần chạy SUPERSEDED")
+    elif args.cmd == "request":
         p = cfg.pipeline["periods"]
         periods = periods_between(p["first"], p["last"]) if args.all else [args.period]
         request(cfg, periods, args.force, json.loads(args.options))

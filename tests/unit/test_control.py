@@ -1,7 +1,7 @@
 """Điều kiện sẵn sàng của bảng điều khiển (ingestion/control.py: ready_periods), review R-33."""
 from datetime import datetime, timedelta, timezone
 
-from ingestion.control import Request, Run, ready_periods
+from ingestion.control import Request, Run, ready_batch, ready_periods
 
 T0 = datetime(2026, 10, 30, 8, 0, tzinfo=timezone.utc)
 ORDER = ["2019Q1", "2019Q2", "2019Q3", "CORR1"]
@@ -101,3 +101,27 @@ def test_running_with_valid_lease_blocks_but_expired_does_not():
     running = Run("2019Q1", "ingest", "RUNNING", at(1), None, at(61))
     assert ready_periods("ingest", ORDER, requests(req("2019Q1")), [running], at(30)) == []
     assert ready_periods("ingest", ORDER, requests(req("2019Q1")), [running], at(90)) == ["2019Q1"]
+
+
+def test_batch_takes_consecutive_ready_periods_up_to_limit():
+    runs = [ok(p, l, 2) for p in ("2019Q1", "2019Q2", "2019Q3") for l in ("ingest", "quality")]
+    assert ready_batch("raw_vault", ORDER, ALL3, runs, at(3), max_periods=10) == ["2019Q1", "2019Q2", "2019Q3"]
+    assert ready_batch("raw_vault", ORDER, ALL3, runs, at(3), max_periods=2) == ["2019Q1", "2019Q2"]
+
+
+def test_batch_stops_at_period_whose_upstream_is_not_done():
+    runs = [ok(p, l, 2) for p in ("2019Q1", "2019Q3") for l in ("ingest", "quality")] + [ok("2019Q2", "ingest", 2)]
+    assert ready_batch("raw_vault", ORDER, ALL3, runs, at(3), max_periods=10) == ["2019Q1"]
+
+
+def test_batch_never_includes_corrections():
+    reqs = requests(req("2019Q1"), req("2019Q2"), req("2019Q3"), req("CORR1"))
+    runs = [ok(p, l, 2) for p in ("2019Q1", "2019Q2", "2019Q3", "CORR1") for l in ("ingest", "quality")]
+    batch = ready_batch("raw_vault", ORDER, reqs, runs, at(3), max_periods=10, corrections={"CORR1"})
+    assert batch == ["2019Q1", "2019Q2", "2019Q3"]
+    done = runs + [ok(p, "raw_vault", 4) for p in batch]
+    assert ready_batch("raw_vault", ORDER, reqs, done, at(5), max_periods=10, corrections={"CORR1"}) == ["CORR1"]
+
+
+def test_non_chronological_layers_process_one_period():
+    assert ready_batch("quality", ORDER, ALL3, [ok(p, "ingest", 1) for p in ("2019Q1", "2019Q2")], at(2), 10) == ["2019Q1"]

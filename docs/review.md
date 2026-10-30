@@ -214,3 +214,23 @@ Ghi lại để đưa vào báo cáo (chương Hạn chế và hướng phát tr
 4. **Trạng thái dùng chung giữa các tầng là nguồn lỗi lặng lẽ.** Ba lỗi trong giai đoạn 2–3 (view đóng băng bộ lọc kỳ, `stg_*` của kỳ trước, staging bị ghi đè khi chạy song song) đều không báo lỗi mà cho dữ liệu sai. Mỗi tầng chỉ nên đọc dữ liệu bền vững của tầng dưới.
 5. **Idempotent là điều kiện an toàn, không phải lý do để chạy lại.** Chạy lại cả luồng khi chỉ thêm một tầng tốn gần 2 giờ (R-32). Tầng đã xong thì giữ nguyên; tính đúng của nó do cổng của nó bảo đảm.
 6. **Thử nhỏ trước khi chạy dài.** Các lần bắt lỗi rẻ nhất đều đến từ thử một hai kỳ trước khi chạy cả 29 kỳ (oracle so 58.267 dòng, `EXPLAIN` 63 giây, smoke trên fixture).
+
+## 13. Vòng 6: tăng tốc dựng model và hoàn thiện chuẩn (30/10/2026)
+
+**R-34. Xử lý theo lô ở tầng cần thứ tự thời gian.** Lần chạy đủ 29 kỳ sau R-33 mất 47 phút 49 giây; Raw Vault trung bình 59 giây mỗi kỳ, Business Vault 31 giây, phần lớn là chi phí cố định của khoảng 100 câu SQL mỗi lần `dbt build` chứ không phải khối lượng dữ liệu. Quyết định:
+
+- `ingestion.control.ready_batch` (hàm thuần, có unit test) gom các kỳ liên tiếp đã sẵn sàng của `raw_vault` và `business_vault` thành một lô, tối đa `orchestration.max_periods_per_batch` (40) kỳ. Một lô dừng ở kỳ đầu tiên chưa sẵn sàng, không bao giờ chứa đợt sửa dữ liệu (đợt sửa có `load_date` riêng nên luôn đi một mình), và bị cắt khi các yêu cầu có `options` khác nhau. Tầng `ingest`, `quality` vẫn mỗi lần một kỳ.
+- dbt nhận `--vars {"periods": [...]}`; `stg_*` lọc theo danh sách kỳ. Mỗi kỳ trong lô vẫn có một dòng `control.layer_run` riêng (ghi kèm `details.batch`), nên điều kiện sẵn sàng và kiểm toán theo kỳ không đổi.
+- Đúng chuẩn vì Satellite so `hash_diff` với phiên bản liền trước theo (`hash_key`, `load_date`) trong cùng lần nạp, như cách nạp nhiều lần giao một lúc của automate-dv (`vault_insert_by_period`, [ADV-MAT]); `load_date` vẫn chỉ đi tới (DV-04).
+- Trạng thái mới `SUPERSEDED` và lệnh `python -m ingestion.control invalidate --layers ... --reason ...`: đánh dấu các lần SUCCESS của tầng phải dựng lại mà không xóa nhật ký; `make run-all` khi đó chỉ chạy các tầng bị đánh dấu (PL-03).
+
+**R-35. Hoàn thiện chuẩn ở staging và soft rule.** Rà lại sau R-33 thấy ba chỗ còn lệch:
+
+| # | Lệch chuẩn | Quyết định |
+| --- | --- | --- |
+| 1 | Staging đổi mã thiếu (`9999`, `XX`...) thành null trước Raw Vault: đó là diễn giải nghiệp vụ (DV-02) và làm mất giá trị gốc | `base_*` chỉ đổi chuỗi rỗng thành null và ép kiểu. Business Vault đổi mã thiếu bằng macro `missing_to_null` sinh từ `conf/schema` |
+| 2 | Tên seller/servicer thiếu cho hash key của chuỗi rỗng thay vì zero key (DV-10, [SF-ZERO]) | `null_columns: required` của macro `stage`: khóa thiếu thành `-1`, giá trị gốc ở `<cột>_ORIGINAL` |
+| 3 | Soft rule tính ở cổng chất lượng trên Bronze (`quality.<x>_soft_violation`): luật nghiệp vụ nằm trước Raw Vault, đổi luật phải chạy lại cổng ([MS-BL], [SF-ERROR]) | Cổng chất lượng chỉ còn hard rule. Soft rule là view Business Vault `quality_violation` (sinh từ `conf/schema`, đọc Raw Vault, bỏ ghost record), kiểm bằng dbt unit test `quality_violation_soft_rules` trên dữ liệu giả lập. Đổi luật chỉ cần dựng lại view |
+| 4 | dbt unit test không chạy được trên Spark Thrift Server: materialization `unit` gọi `run_query` cho `CREATE TEMPORARY VIEW`, câu lệnh không trả result set nên lỗi `'NoneType' object is not iterable` | Ghi đè `unit` cho adapter `spark` (`dbt/macros/spark_unit_test.sql`), chép nguyên bản dbt-core 1.12, chỉ đổi dòng tạo bảng tạm sang `statement` không lấy kết quả. Đăng ký DEV-06. Đã kiểm test có thể trượt: đổi một dòng kỳ vọng thì test báo FAIL |
+
+*Phạm vi:* đánh dấu SUPERSEDED và xóa schema `staging`, `raw_vault`, `business_vault`, `baseline` cùng hai bảng `quality.*_soft_violation`; chạy lại Raw Vault và Business Vault theo lô. Landing, Bronze và cổng chất lượng không chạy lại vì dữ liệu `_clean`, `_quarantine`, `_dedup` không đổi (`make smoke` xác nhận). Chạy lại cổng C2, C3. PRD lên 1.7.

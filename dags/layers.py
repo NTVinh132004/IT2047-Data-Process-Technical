@@ -1,7 +1,8 @@
 """Mỗi tầng một DAG (FR-21, review R-33): layer_ingest, layer_quality, layer_raw_vault, layer_business_vault.
 
-Mỗi DAG chạy định kỳ (5 phút) và khi tầng trên vừa xử lý xong việc (task nudge_next). Mỗi lượt: nhận kỳ sẵn sàng sớm
-nhất từ bảng điều khiển (ingestion/control.py), xử lý, ghi trạng thái, lặp đến khi hết kỳ sẵn sàng. Kỳ lỗi được ghi
+Mỗi DAG chạy định kỳ (5 phút) và khi tầng trên vừa xử lý xong việc (task nudge_next). Mỗi lượt: nhận lô kỳ sẵn sàng
+sớm nhất từ bảng điều khiển (ingestion/control.py; tầng dbt gom nhiều kỳ liền nhau vào một lần build, R-34), xử lý, ghi
+trạng thái, lặp đến khi hết kỳ sẵn sàng. Kỳ lỗi được ghi
 FAILED rồi task báo lỗi để thấy trên Airflow UI; lượt sau thử lại đến giới hạn số lần. Pool chặn hai job Spark (ingest,
 quality) hoặc hai lệnh dbt chạy cùng lúc trong container scheduler và Thrift Server.
 """
@@ -32,17 +33,19 @@ def make_layer_dag(layer: str, next_layer: str | None):
             processed = 0
             while datetime.now(timezone.utc) < deadline:
                 claimed = control.claim(cfg, layer, run_id)
-                if claimed is None:
+                if not claimed:
                     break
-                row_id, request = claimed
-                print(f"Tầng {layer}: xử lý kỳ {request.period} (force={request.force})")
+                periods = [request.period for _, request in claimed]
+                print(f"Tầng {layer}: xử lý lô {periods}")
                 try:
-                    counts = layers.run(layer, request.period, request.options)
+                    counts = layers.run(layer, periods, claimed[0][1].options)
                 except Exception as exc:
-                    control.finish(row_id, "FAILED", error=str(exc)[-4000:])
+                    for row_id, _ in claimed:
+                        control.finish(row_id, "FAILED", error=str(exc)[-4000:])
                     raise
-                control.finish(row_id, "SUCCESS", counts=counts)
-                processed += 1
+                for row_id, _ in claimed:
+                    control.finish(row_id, "SUCCESS", counts={**counts, "batch": periods})
+                processed += len(claimed)
             return processed
 
         processed = process()

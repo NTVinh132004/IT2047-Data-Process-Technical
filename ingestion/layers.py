@@ -4,7 +4,9 @@
 - quality: cổng chất lượng (FR-07)
 - raw_vault: dbt build staging, Raw Vault và bảng đối chứng ghi đè cho kỳ, kèm dbt test (FR-08 đến FR-10, FR-14, FR-22)
 - business_vault: dbt build snapshot table, PIT, Satellite tính toán, kèm dbt test (FR-12, FR-13, FR-22). Không dùng
-  biến period: Business Vault xử lý mọi mốc có trong Raw Vault mà chưa có trong PIT
+  biến periods: Business Vault xử lý mọi mốc có trong Raw Vault mà chưa có trong PIT
+Tầng dbt nhận một lô kỳ liền nhau trong một lần build (R-34): chi phí cố định của khoảng 100 câu SQL mỗi lần build
+chỉ trả một lần cho cả lô
 """
 import json
 import subprocess
@@ -19,8 +21,8 @@ DBT_SELECT = {
 }
 
 
-def _dbt_build(layer: str, period: str, options: dict) -> dict:
-    variables = {"period": period, "inject_test_failure": bool(options.get("inject_test_failure", False))}
+def _dbt_build(layer: str, periods: list[str], options: dict) -> dict:
+    variables = {"periods": periods, "inject_test_failure": bool(options.get("inject_test_failure", False))}
     cmd = [DBT, "build", *DBT_SELECT[layer], "--vars", json.dumps(variables)]
     run = subprocess.run(cmd, cwd=DBT_DIR, capture_output=True, text=True)
     print(run.stdout[-20000:])  # vào log task Airflow
@@ -30,8 +32,12 @@ def _dbt_build(layer: str, period: str, options: dict) -> dict:
     return {"dbt": summary.split("Done. ", 1)[-1].strip()}
 
 
-def run(layer: str, period: str, options: dict | None = None) -> dict:
+def run(layer: str, periods: list[str], options: dict | None = None) -> dict:
+    """Xử lý một lô kỳ. Tầng PySpark (ingest, quality) chỉ nhận lô một kỳ; tầng dbt nhận cả lô trong một lần build."""
     options = options or {}
+    if layer in DBT_SELECT:
+        return _dbt_build(layer, periods, options)
+    (period,) = periods
     if layer == "ingest":
         from ingestion import bronze, landing
         from ingestion.config import Config
@@ -45,6 +51,4 @@ def run(layer: str, period: str, options: dict | None = None) -> dict:
         from ingestion import quality
 
         return quality.run(period)
-    if layer in DBT_SELECT:
-        return _dbt_build(layer, period, options)
     raise ValueError(f"Tầng không hợp lệ: {layer}")

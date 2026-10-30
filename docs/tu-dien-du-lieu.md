@@ -140,10 +140,12 @@ Theo chuẩn Data Vault 2.0, trước Raw Vault chỉ áp hard rule (điều ch�
 | Cột kiểu `int`, `decimal`, `yyyymm` ép kiểu được | Theo `conf/schema` | Hard | Error mart | `sai_kieu` |
 | Trùng (`loan_id`) ở orig, (`loan_id`, `reporting_period`) ở perf, các bản sao giống hệt | Trong lát kỳ | Hard (khử trùng lặp) | Giữ một bản, các bản còn lại ghi vào báo cáo khử trùng lặp | `ban_sao` |
 | Trùng khóa như trên nhưng các bản khác giá trị | Trong lát kỳ | Hard (không nạp được: trùng khóa Satellite) | Error mart, mọi bản sao | `trung_khoa` |
-| Giá trị nằm trong `domain` hoặc `values`, khớp `pattern`, hoặc là mã `missing`; cột không `nullable` phải có giá trị | Theo `conf/schema` | Soft | Vẫn vào Raw Vault; ghi vào báo cáo vi phạm | `ngoai_mien` |
-| Dòng perf có `loan_id` trong orig ở Bronze | perf | Soft | Vẫn vào Raw Vault (`hub_loan` nạp cả từ perf); ghi vào báo cáo vi phạm | `mo_coi` |
+| Giá trị nằm trong `domain` hoặc `values`, khớp `pattern`, hoặc là mã `missing`; cột không `nullable` phải có giá trị | Theo `conf/schema` | Soft | Vẫn vào Raw Vault; báo ở `business_vault.quality_violation` | `ngoai_mien` |
+| Dòng perf có `loan_id` trong orig ở Bronze | perf | Soft | Vẫn vào Raw Vault (`hub_loan` nạp cả từ perf); báo ở `business_vault.quality_violation` (khoản vay có trong `xts_loan` từ perf nhưng chưa từng có orig) | `mo_coi` |
 
-Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi: Bronze giữ nguyên, staging đổi thành null. Mỗi dòng vào error mart mang một lý do chính theo thứ tự các hard rule trong bảng; một dòng có thể có nhiều vi phạm soft rule. Cài đặt: `ingestion/quality.py`; kiểm bằng `make smoke` trên bộ fixture giả lập.
+Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi và được giữ nguyên tới Raw Vault (staging chỉ đổi chuỗi rỗng thành null và ép kiểu, R-35). Đổi mã thiếu thành null là diễn giải nghiệp vụ nên làm ở Business Vault bằng macro `missing_to_null` (`dbt/macros/missing_codes.sql`, sinh từ `conf/schema`). Thiếu tên seller hoặc servicer thì khóa nghiệp vụ nhận zero key `-1` (`null_columns` của automate-dv), giá trị gốc ở cột `<cột>_ORIGINAL` (DV-10).
+
+Mỗi dòng vào error mart mang một lý do chính theo thứ tự các hard rule trong bảng. Cài đặt hard rule: `ingestion/quality.py`, kiểm bằng `make smoke` trên bộ fixture giả lập. Soft rule: view `business_vault.quality_violation` (sinh bằng `scripts/gen_dbt_staging.py` từ `conf/schema`), mỗi vi phạm của một phiên bản Satellite là một dòng, bỏ qua ghost record; kiểm bằng dbt unit test `quality_violation_soft_rules` trên dữ liệu giả lập.
 
 ## 6. File tải trước Release 47
 

@@ -5,6 +5,10 @@ derived_columns:
   # Nguồn của lần xuất hiện, ghi vào record tracking satellite xts_loan (R-33)
   TRACK_SOURCE: "!perf"
   TRACK_LINK_LOAN_SERVICER: "!link_loan_servicer"
+null_columns:
+  # Khóa nghiệp vụ thiếu thay bằng '-1' trước khi băm, giữ gốc ở servicer_name_ORIGINAL: không bỏ dòng khỏi Hub/Link
+  # (DV-10, cơ chế null_columns của automate_dv theo DV-13)
+  required: [servicer_name]
 hashed_columns:
   LOAN_HK: loan_id
   SERVICER_HK: servicer_name
@@ -30,6 +34,6 @@ hashed_columns:
 SELECT * FROM (
 {{ automate_dv.stage(include_source_columns=true, source_model=metadata['source_model'],
                      hashed_columns=metadata['hashed_columns'], derived_columns=metadata['derived_columns'],
-                     null_columns=none, ranked_columns=none) }}
+                     null_columns=metadata['null_columns'], ranked_columns=none) }}
 ) AS staged
-{% if var('period') %}WHERE period = '{{ var('period') }}'{% endif %}
+{% if var('periods') %}WHERE period IN ({% for p in var('periods') %}'{{ p }}'{{ ', ' if not loop.last }}{% endfor %}){% endif %}

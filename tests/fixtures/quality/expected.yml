@@ -6,13 +6,11 @@ summary:
     quarantine_rows: 4
     dedup_rows: 1
     clean_rows: 13
-    soft_violations: 2
   perf:
     bronze_rows: 30
     quarantine_rows: 5
     dedup_rows: 1
     clean_rows: 24
-    soft_violations: 2
 quarantine:
 - table: orig
   loan_id: F19Q29900007
@@ -52,22 +50,3 @@ dedup:
 - table: perf
   loan_id: F19Q29900016
   reporting_period: '201904'
-soft_violation:
-- table: orig
-  loan_id: F19Q29900011
-  rule: ngoai_mien
-  column: credit_score
-- table: orig
-  loan_id: F19Q29900012
-  rule: ngoai_mien
-  column: occupancy_status
-- table: perf
-  loan_id: F19Q29900013
-  reporting_period: '201905'
-  rule: ngoai_mien
-  column: delinquency_status
-- table: perf
-  loan_id: F19Q29900099
-  reporting_period: '201904'
-  rule: mo_coi
-  column: loan_id

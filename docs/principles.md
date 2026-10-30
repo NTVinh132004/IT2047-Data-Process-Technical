@@ -31,7 +31,7 @@ Binding rules for anyone (human or Claude) designing, coding or reviewing this p
 
 **DV-01 Layering.** Data flows staging → Raw Vault → Business Vault → information marts. Staging is transient and only feeds the Raw Vault. The Business Vault (including PIT and bridge tables) and the marts read only the Raw Vault and the Business Vault, never staging. *Evidence:* [SF-GHOST] (PIT is a Business Vault object built from Hub/Link and Satellites), [LINSTEDT]; violation and fix in R-33 #1.
 
-**DV-02 Hard rules before the Raw Vault, soft rules after.** Before the Raw Vault only technical adjustments that do not change meaning are allowed: data type alignment, system columns, de-duplication of identical copies. Business checks (domain ranges, completeness, orphans, cleansing, interpretation) belong in the Business Vault or a quality layer, so rules can change without reloading raw data. *Evidence:* [MS-DV], [MS-BL], [SF-ERROR]; R-33 #2.
+**DV-02 Hard rules before the Raw Vault, soft rules after.** Before the Raw Vault only technical adjustments that do not change meaning are allowed: data type alignment, system columns, de-duplication of identical copies. Business checks (domain ranges, completeness, orphans, cleansing, interpretation) belong in the Business Vault or a quality layer, so rules can change without reloading raw data. Interpreting source missing codes (for example `9999`, `XX`) as null is a soft rule: staging keeps them, the Business Vault converts them (`missing_to_null`). *Evidence:* [MS-DV], [MS-BL], [SF-ERROR]; R-33 #2, R-35 #1.
 
 **DV-03 Load all data; only technical conditions while loading the Raw Vault.** The Raw Vault aims to hold all delivered data regardless of quality. The only conditions allowed in Raw Vault loading are technical ones: the delta check against the latest version and replacing missing keys with zero keys. No business filters in Raw Vault models. A whole delivery that fails technical validation may be set aside, because the data lake/persistent staging area keeps the original. *Evidence:* [SF-ZERO], [SF-CORRUPT]; R-33 #4.
 
@@ -47,11 +47,11 @@ Binding rules for anyone (human or Claude) designing, coding or reviewing this p
 
 **DV-09 PIT tables follow the standard structure.** Snapshot dates come from a snapshot table. Each Satellite gets a pointer pair (parent hash key, `load_date`). When no version exists at a snapshot, the pointer targets the Satellite's ghost record, so every join from the PIT is an equi-join. *Evidence:* [SF-GHOST]; R-33 #5.
 
-**DV-10 Ghost records and zero keys.** Every Satellite has one ghost record: zero hash key, earliest `load_date`, `record_source = SYSTEM`, null payload. Missing business keys map to a zero key instead of dropping rows. Tests that check referential integrity exclude the zero key. *Evidence:* [SF-GHOST], [SF-ZERO].
+**DV-10 Ghost records and zero keys.** Every Satellite has one ghost record: zero hash key, earliest `load_date`, `record_source = SYSTEM`, null payload. Missing business keys map to a zero key instead of dropping rows. Tests that check referential integrity exclude the zero key. Implement zero keys with the AutomateDV `null_columns` stage option, which keeps the original value in `<column>_ORIGINAL`. *Evidence:* [SF-GHOST], [SF-ZERO]; R-35 #2.
 
 **DV-11 Business Vault is derived and rebuildable.** Computed Satellites are keyed by the parent hash key plus the load or snapshot date, carry a `record_source`, and can be rebuilt from the Raw Vault at any time. *Evidence:* [LINSTEDT], [SF-GLOSSARY].
 
-**DV-12 Error mart and quality reporting.** Rows failing hard rules go to the error mart with a reason, so they can be fixed and reloaded. Soft-rule violations are reported (quality mart or violation report) without blocking the Raw Vault. *Evidence:* [SF-ERROR], [SF-GLOSSARY]; FR-07.
+**DV-12 Error mart and quality reporting.** Rows failing hard rules go to the error mart with a reason, so they can be fixed and reloaded. Soft-rule violations are reported without blocking the Raw Vault, computed in the Business Vault from Raw Vault data (`business_vault.quality_violation`), so a rule change only rebuilds the report. *Evidence:* [SF-ERROR], [SF-GLOSSARY]; FR-07, R-35 #3.
 
 **DV-13 Prefer the standard package.** Use AutomateDV macros as published. Write a macro only when the published one cannot run on this platform, keep its logic identical to the published version, and register the deviation with the reason (section 7). *Evidence:* P5, R-26.
 
@@ -61,9 +61,9 @@ Binding rules for anyone (human or Claude) designing, coding or reviewing this p
 
 **PL-02 Read only persisted output of the layer below.** A layer never reads mutable shared state such as transient tables overwritten by another layer. *Evidence:* three silent wrong-data bugs in phases 2–3 (R-31 #9, R-32, R-33 #1).
 
-**PL-03 Idempotent, but do not rerun what is done.** Rerunning any layer for any period must not change row counts. Idempotency makes reruns safe; it is not a reason to rerun. Completed layers are not reprocessed unless explicitly forced. *Evidence:* R-09, R-32; AC-02.
+**PL-03 Idempotent, but do not rerun what is done.** Rerunning any layer for any period must not change row counts. Idempotency makes reruns safe; it is not a reason to rerun. Completed layers are not reprocessed unless explicitly forced. When a model change requires a rebuild, mark that layer's runs `SUPERSEDED` (`python -m ingestion.control invalidate`) instead of deleting the log or rerunning the layers below. *Evidence:* R-09, R-32, R-34; AC-02.
 
-**PL-04 Respect chronological dependencies.** Layers whose result depends on earlier periods (Raw Vault: delta check; Business Vault: seeded running values) process periods in order. The readiness rule lives in one tested function (`ingestion.control.ready_periods`). *Evidence:* R-31 #3, R-33; `tests/unit/test_control.py`.
+**PL-04 Respect chronological dependencies.** Layers whose result depends on earlier periods (Raw Vault: delta check; Business Vault: seeded running values) process periods in order. The readiness rule lives in one tested function (`ingestion.control.ready_periods`). Consecutive ready periods may be loaded as one batch (`ready_batch`), in order, never mixed with a correction delivery; each period keeps its own run record. *Evidence:* R-31 #3, R-33, R-34; [ADV-MAT] (`vault_insert_by_period`); `tests/unit/test_control.py`.
 
 **PL-05 Fail visibly, recover automatically.** Runs hold a lease; expired leases are reclaimed. Retries are bounded; a period that keeps failing stops and is reported, never retried forever. Pools prevent two Spark jobs or two dbt runs from running at the same time. *Evidence:* stuck RUNNING rows after machine restarts (30/10/2026), R-33.
 
@@ -115,6 +115,7 @@ Approved departures from the references, each with evidence. A new deviation nee
 | DEV-03 | DV-04: `load_date` = actual insert time | `load_date` = simulated arrival time of the monthly delivery (first day of the following month) during history replay; forward-only is enforced by ordered processing (PL-04) and the Satellite delta check | The project replays 2019–2026 history in batches; AutomateDV documents the same replay pattern (`vault_insert_by_period`, [ADV-MAT]) | R-01, R-33 |
 | DEV-04 | DV-08: effectivity satellite for changing relationships | No effectivity satellite on `link_loan_servicer`; monthly servicer comes from the record tracking satellite `xts_loan_servicer` | FR-11 cut for scope (one-person project); record tracking is the documented alternative when no effectivity data exists ([DV4DBT-EFF]) | R-25, R-33 |
 | DEV-05 | DV-10: zero key for missing business keys | Rows with a missing or malformed loan identifier go to the error mart instead of a zero key | The loan is the central business key; without it the row cannot be attributed to any loan. Missing seller or servicer keys still follow DV-10 | R-33 |
+| DEV-06 | DV-13: use published materialisations | `dbt/macros/spark_unit_test.sql` overrides dbt-core's `unit` materialisation for the `spark` adapter; one line changed: the temporary relation is created with a non-fetching `statement` instead of `run_query` | Through the Spark Thrift Server, `CREATE TEMPORARY VIEW` returns no result set, so `run_query` fails with `'NoneType' object is not iterable` and no dbt unit test can run (reproduced 30/10/2026, dbt-core 1.12.5, dbt-spark 1.11.0). Re-check against the original when upgrading dbt-core | R-35 |
 
 ## 8. Pre-commit checklist
 

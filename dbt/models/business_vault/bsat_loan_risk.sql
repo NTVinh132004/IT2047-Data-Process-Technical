@@ -25,7 +25,8 @@ month_state AS (
     SELECT
         p.LOAN_HK,
         p.AS_OF_DATE AS load_date,
-        d.delinquency_status,
+        -- Raw Vault giữ mã thiếu như nguồn giao; diễn giải XX thành không có dữ liệu ở đây (DV-02, R-35)
+        {{ missing_to_null('delinquency_status', 'd.delinquency_status') }} AS delinquency_status,
         d.borrower_assistance_plan,
         t.zero_balance_code
     FROM {{ ref('pit_loan_monthly') }} AS p

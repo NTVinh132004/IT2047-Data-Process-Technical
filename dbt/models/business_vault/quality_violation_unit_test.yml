@@ -1,0 +1,174 @@
+# Sinh bởi tests/fixtures/quality/make_fixture.py, đừng sửa tay.
+unit_tests:
+- name: quality_violation_soft_rules
+  description: 'Soft rule ở Business Vault (R-35): ngoài miền (Q1), ngoài danh sách
+    mã (Q2), sai mẫu (Q5), thiếu giá trị bắt buộc (Q6), perf không có orig (Q7) là
+    vi phạm; mã thiếu (Q3 9999, V2 XX), cột cho phép null (Q4) và ghost record không
+    phải vi phạm'
+  model: quality_violation
+  given:
+  - input: ref('sat_loan_origination')
+    rows:
+    - LOAN_HK: '0000000000000000000000000000000000000000000000000000000000000000'
+      load_date: '1900-01-01'
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+      credit_score: '750'
+      first_payment_date: '201905'
+      first_time_homebuyer_flag: N
+      maturity_date: '204904'
+      mi_pct: '0'
+      orig_cltv: '80'
+      orig_dti: '35'
+      orig_upb: '250000'
+      orig_ltv: '80'
+      orig_interest_rate: '4.5'
+      channel: R
+      loan_purpose: P
+      orig_loan_term: '360'
+      number_of_borrowers: '2'
+      super_conforming_flag: N
+    - LOAN_HK: Q1
+      load_date: '2019-05-01'
+      credit_score: '200'
+      first_payment_date: '201905'
+      first_time_homebuyer_flag: N
+      maturity_date: '204904'
+      mi_pct: '0'
+      orig_cltv: '80'
+      orig_dti: '35'
+      orig_upb: '250000'
+      orig_ltv: '80'
+      orig_interest_rate: '4.5'
+      channel: R
+      loan_purpose: P
+      orig_loan_term: '360'
+      number_of_borrowers: '2'
+      super_conforming_flag: N
+    - LOAN_HK: Q3
+      load_date: '2019-05-01'
+      credit_score: '9999'
+      first_payment_date: '201905'
+      first_time_homebuyer_flag: N
+      maturity_date: '204904'
+      mi_pct: '0'
+      orig_cltv: '80'
+      orig_dti: '35'
+      orig_upb: '250000'
+      orig_ltv: '80'
+      orig_interest_rate: '4.5'
+      channel: R
+      loan_purpose: P
+      orig_loan_term: '360'
+      number_of_borrowers: '2'
+      super_conforming_flag: N
+  - input: ref('sat_loan_property')
+    rows:
+    - LOAN_HK: '0000000000000000000000000000000000000000000000000000000000000000'
+      load_date: '1900-01-01'
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+      msa_code: '10180'
+      number_of_units: '1'
+      occupancy_status: P
+      property_state: TX
+      property_type: SF
+      postal_code: '750'
+      property_valuation_method: '2'
+    - LOAN_HK: Q2
+      load_date: '2019-05-01'
+      msa_code: '10180'
+      number_of_units: '1'
+      occupancy_status: X
+      property_state: TX
+      property_type: SF
+      postal_code: '750'
+      property_valuation_method: '2'
+    - LOAN_HK: Q4
+      load_date: '2019-05-01'
+      number_of_units: '1'
+      occupancy_status: P
+      property_state: TX
+      property_type: SF
+      postal_code: '750'
+      property_valuation_method: '2'
+  - input: ref('sat_loan_balance')
+    rows:
+    - LOAN_HK: '0000000000000000000000000000000000000000000000000000000000000000'
+      load_date: '1900-01-01'
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+      current_upb: '250000.00'
+      loan_age: '1'
+      remaining_months: '359'
+      current_interest_rate: '4.500'
+      non_interest_bearing_upb: '0.00'
+      cumulative_modification_cost: '0.00'
+      eltv: '75'
+      interest_bearing_upb: '250000.00'
+    - LOAN_HK: Q6
+      load_date: '2019-05-01'
+      loan_age: '1'
+      remaining_months: '359'
+      current_interest_rate: '4.500'
+      non_interest_bearing_upb: '0.00'
+      cumulative_modification_cost: '0.00'
+      eltv: '75'
+      interest_bearing_upb: '250000.00'
+  - input: ref('sat_loan_delinquency')
+    rows:
+    - LOAN_HK: '0000000000000000000000000000000000000000000000000000000000000000'
+      load_date: '1900-01-01'
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+      delinquency_status: '00'
+      mi_cancellation_flag: '7'
+    - LOAN_HK: Q5
+      load_date: '2019-05-01'
+      delinquency_status: ZZ
+      mi_cancellation_flag: '7'
+    - LOAN_HK: V2
+      load_date: '2019-05-01'
+      delinquency_status: XX
+      mi_cancellation_flag: '7'
+  - input: ref('sat_loan_termination')
+    rows:
+    - LOAN_HK: '0000000000000000000000000000000000000000000000000000000000000000'
+      load_date: '1900-01-01'
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+  - input: ref('xts_loan')
+    rows:
+    - LOAN_HK: V1
+      load_date: '2019-05-01'
+      SATELLITE_NAME: perf
+    - LOAN_HK: Q7
+      load_date: '2019-05-01'
+      SATELLITE_NAME: perf
+  expect:
+    rows:
+    - LOAN_HK: Q1
+      satellite: sat_loan_origination
+      rule: ngoai_mien
+      column_name: credit_score
+      value: '200'
+    - LOAN_HK: Q2
+      satellite: sat_loan_property
+      rule: ngoai_mien
+      column_name: occupancy_status
+      value: X
+    - LOAN_HK: Q5
+      satellite: sat_loan_delinquency
+      rule: ngoai_mien
+      column_name: delinquency_status
+      value: ZZ
+    - LOAN_HK: Q6
+      satellite: sat_loan_balance
+      rule: ngoai_mien
+      column_name: current_upb
+      value: null
+    - LOAN_HK: Q7
+      satellite: xts_loan
+      rule: mo_coi
+      column_name: loan_id
+      value: null

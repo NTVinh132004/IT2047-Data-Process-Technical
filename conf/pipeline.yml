@@ -27,6 +27,10 @@ bronze:
 quality:
   # Cổng chất lượng (FR-07): <x>_clean cho dbt, <x>_quarantine kèm lý do; ghi đè lát của kỳ
   database: quality
+orchestration:
+  # Số kỳ tối đa gom vào một lần nạp của tầng cần thứ tự thời gian (Raw Vault, Business Vault), R-34.
+  # Bộ mẫu gom được cả 29 kỳ; với bộ đầy đủ phải đo bộ nhớ ở C5 rồi đặt lại
+  max_periods_per_batch: 40
 corrections:
   # Đợt sửa dữ liệu giả lập (FR-14, AC-09): nạp sau kỳ cuối, load_date mới, record_source riêng. Khoản vay được chọn
   # theo seed từ Bronze lúc chạy (không lưu dữ liệu thật trong repo); mỗi cột cộng độ lệch, chỉ chọn khoản vay
