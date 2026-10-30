@@ -4,7 +4,7 @@ Mọi tên cột, đường dẫn và dải kỳ nạp lấy từ đây. Code ch
 (loan_key) và tháng báo cáo (reporting_period), được đánh dấu bằng `role:` trong conf/schema/*.yml.
 """
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 
@@ -19,6 +19,8 @@ class Column:
     name: str
     type: str
     role: str | None = None
+    # Khai báo gốc trong conf/schema (missing, domain, values, pattern, nullable...), dùng cho cổng chất lượng
+    spec: dict = field(default_factory=dict, compare=False, hash=False)
 
 
 @dataclass(frozen=True)
@@ -80,7 +82,7 @@ class Config:
 
     def _schema(self, kind: str) -> SourceSchema:
         raw = yaml.safe_load((self.conf_dir / "schema" / f"{kind}.yml").read_text())
-        columns = tuple(Column(c["pos"], c["name"], c["type"], c.get("role")) for c in raw["columns"])
+        columns = tuple(Column(c["pos"], c["name"], c["type"], c.get("role"), c) for c in raw["columns"])
         positions = [c.pos for c in columns]
         if positions != list(range(1, raw["field_count"] + 1)):
             raise ValueError(f"conf/schema/{kind}.yml: vị trí cột phải liên tục 1..{raw['field_count']}")

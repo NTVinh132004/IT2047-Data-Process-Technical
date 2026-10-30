@@ -1,0 +1,223 @@
+# Test Raw Vault (FR-22): khóa duy nhất, không null, quan hệ tới Hub, cột kiểm toán không null.
+version: 2
+models:
+- name: hub_loan
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: loan_id
+    data_tests:
+    - unique
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: hub_seller
+  columns:
+  - name: SELLER_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: seller_name
+    data_tests:
+    - unique
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: hub_servicer
+  columns:
+  - name: SERVICER_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: servicer_name
+    data_tests:
+    - unique
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: link_loan_seller
+  columns:
+  - name: LOAN_SELLER_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: SELLER_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_seller')
+          field: SELLER_HK
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: link_loan_servicer
+  columns:
+  - name: LOAN_SERVICER_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: SERVICER_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_servicer')
+          field: SERVICER_HK
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: sat_loan_origination
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: ORIGINATION_HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: sat_loan_property
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: PROPERTY_HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: sat_loan_balance
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: BALANCE_HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: sat_loan_delinquency
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: DELINQUENCY_HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: sat_loan_termination
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: TERMINATION_HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null

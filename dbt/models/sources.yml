@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: quality
+    description: Dòng đã qua cổng chất lượng (ingestion/quality.py), giá trị dạng chuỗi như Bronze
+    schema: quality
+    tables:
+      - name: orig_clean
+      - name: perf_clean

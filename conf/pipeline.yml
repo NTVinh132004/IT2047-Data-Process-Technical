@@ -24,3 +24,6 @@ bronze:
   database: bronze
   orig_table: orig
   perf_table: perf
+quality:
+  # Cổng chất lượng (FR-07): <x>_clean cho dbt, <x>_quarantine kèm lý do; ghi đè lát của kỳ
+  database: quality

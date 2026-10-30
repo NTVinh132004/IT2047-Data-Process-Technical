@@ -135,11 +135,12 @@ Vì bộ mẫu không có lỗi, test cổng C2 cần một tệp fixture nhỏ 
 | Số trường đúng 31 (orig) / 35 (perf) | Mọi dòng | `sai_so_truong` |
 | `loan_id` khớp mẫu `^[FA]\d{2}Q[1-4]\d{7}$` | orig, perf | `sai_khoa` |
 | Cột kiểu `int`, `decimal`, `yyyymm` ép kiểu được | Theo `conf/schema` | `sai_kieu` |
-| Giá trị nằm trong `domain` hoặc `values`, hoặc là mã `missing` | Theo `conf/schema` | `ngoai_mien` |
-| Không trùng (`loan_id`) ở orig, (`loan_id`, `reporting_period`) ở perf | Trong lát kỳ | `trung_khoa` |
+| Giá trị nằm trong `domain` hoặc `values`, khớp `pattern`, hoặc là mã `missing` | Theo `conf/schema` | `ngoai_mien` |
+| Cột không khai báo `nullable` thì phải có giá trị | Theo `conf/schema` | `ngoai_mien` |
+| Không trùng (`loan_id`) ở orig, (`loan_id`, `reporting_period`) ở perf; mọi bản sao bị chặn | Trong lát kỳ, giữa các dòng đã qua các luật trên | `trung_khoa` |
 | Dòng perf có `loan_id` trong orig (Bronze, mọi kỳ đến kỳ hiện tại) | perf | `mo_coi` |
 
-Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi: Bronze giữ nguyên, staging đổi thành null.
+Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi: Bronze giữ nguyên, staging đổi thành null. Mỗi dòng lỗi mang một lý do chính, theo thứ tự các dòng trong bảng trên (review R-29). Cài đặt: `ingestion/quality.py`; kiểm bằng `make smoke` trên bộ fixture giả lập.
 
 ## 6. File tải trước Release 47
 

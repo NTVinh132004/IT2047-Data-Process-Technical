@@ -1,0 +1,14 @@
+# dbt chạy trong container airflow-scheduler, kết nối Spark Thrift Server (R-27)
+lakehouse:
+  target: thrift
+  outputs:
+    thrift:
+      type: spark
+      method: thrift
+      host: "{{ env_var('DBT_SPARK_HOST', 'spark-thrift') }}"
+      port: 10000
+      user: lakehouse
+      schema: raw_vault
+      threads: 2
+      connect_retries: 5
+      connect_timeout: 10

@@ -23,7 +23,8 @@ CHECKS = [
 
 @pytest.fixture(scope="module")
 def spike():
-    sh("docker", "compose", "up", "-d", "--build", cwd=SPIKE)
+    # Không ép --build: compose tự build khi chưa có image; ép build làm test phụ thuộc mạng tới Docker Hub
+    sh("docker", "compose", "up", "-d", cwd=SPIKE)
     try:
         sh("bash", str(SPIKE / "run_spike.sh"), check=False, timeout=1800)
     finally:

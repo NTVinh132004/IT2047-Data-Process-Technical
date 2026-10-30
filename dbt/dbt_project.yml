@@ -1,0 +1,36 @@
+name: mortgage_datavault
+version: "1.0.0"
+profile: lakehouse
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Quy tắc hash chốt ở PRD FR-06 (sha2-256, upper, trim, null thành ^^, nối bằng ||); không đổi sau khi đã nạp
+  hash: SHA
+  concat_string: "||"
+  null_placeholder_string: "^^"
+  hash_content_casing: UPPER
+  # Kỳ nạp DAG truyền vào (--vars '{period: 2020Q1}'); để trống thì staging lấy mọi kỳ (dựng lại toàn bộ)
+  period: ""
+  # Bật một test cố ý sai để kiểm DAG dừng khi dbt test lỗi (FR-22, cổng C2)
+  inject_test_failure: false
+
+models:
+  mortgage_datavault:
+    +file_format: delta
+    staging:
+      +schema: staging
+      +materialized: view
+    raw_vault:
+      +schema: raw_vault
+      +materialized: incremental
+      # Chạy lại kỳ cũ không chèn lại dòng: chỉ nhận dòng mới hơn phiên bản mới nhất (R-08, R-26)
+      +meta:
+        apply_source_filter: true
+
+seeds:
+  mortgage_datavault:
+    +schema: staging

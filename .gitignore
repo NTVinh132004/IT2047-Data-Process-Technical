@@ -22,3 +22,6 @@ logs/
 
 # Bí mật
 .env
+
+# Wheel tải sẵn cho build image (docker/airflow/Dockerfile)
+docker/airflow/wheels/*.whl

@@ -129,3 +129,23 @@ Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby n
 *Phương án không chọn:* cache dữ liệu perf trong một job (chỉ gộp hai lượt quét thành một, vẫn quét toàn bộ file mỗi kỳ); một SparkSession sống lâu cho mọi kỳ (giảm chi phí khởi động, nhưng phá cấu trúc một DAG run cho một kỳ và việc chạy lại từng kỳ, FR-21).
 
 *Sửa kèm:* Delta cập nhật schema bảng trong metastore sau mỗi lần ghi; metastore 3.1 mặc định từ chối (`hive.metastore.disallow.incompatible.col.type.changes`) và Delta in stack trace dài (không làm hỏng dữ liệu). Đặt cấu hình này thành `false` để log sạch.
+
+## 10. Giai đoạn 2: cổng chất lượng và Raw Vault (30/10/2026)
+
+**R-29.** Các quyết định khi cài cổng chất lượng (FR-07) và Raw Vault. Không đổi FR hay AC.
+
+| # | Quyết định | Lý do |
+| --- | --- | --- |
+| 1 | Cổng chất lượng ghi `quality.<x>_clean` (dòng hợp lệ, giữ dạng chuỗi như Bronze) và `quality.<x>_quarantine` (thêm `_reject_reason`, `_reject_column`), phân vùng theo kỳ, ghi đè lát bằng `replaceWhere` | dbt chỉ đọc bảng clean nên dòng lỗi không thể vào Raw Vault; AC-06 kiểm được bằng phép cộng; chạy lại kỳ không nhân đôi (R-09) |
+| 2 | Luật đọc từ `conf/schema` (`type`, `domain`, `values`, `missing`, `pattern`, `nullable`), không viết cứng trong code | Từ điển, schema và cổng chất lượng không thể lệch nhau; đổi luật chỉ sửa `conf/` (FR-03) |
+| 3 | Mỗi dòng lỗi mang một lý do chính, theo thứ tự: sai số trường, sai khóa, sai kiểu, ngoài miền, trùng khóa, mồ côi | Dòng thiếu trường thì các luật sau vô nghĩa; báo nhiều lý do làm báo cáo chất lượng (G5) đếm trùng |
+| 4 | Trùng khóa: chặn mọi bản sao, nhưng chỉ đếm giữa các dòng đã qua luật trên từng dòng | Không biết bản nào đúng; một bản hỏng kiểu không làm bản đúng bị chặn oan |
+| 5 | Cột không khai báo `nullable` mà rỗng thì bị chặn với lý do `ngoai_mien` | Thiếu giá trị bắt buộc là một dạng ngoài miền; không thêm lý do mới |
+| 6 | Mồ côi so với orig ở Bronze của mọi kỳ đến kỳ hiện tại | Lát orig của một khoản vay nằm ở kỳ có tháng perf đầu tiên, luôn không muộn hơn kỳ của dòng perf. Hệ quả: phải nạp các kỳ theo thứ tự thời gian (`make run-all` đã làm vậy); nạp một kỳ muộn trước kỳ sớm hơn sẽ chặn oan dòng perf |
+| 7 | Model `base_orig`, `base_perf` (ép kiểu, đổi mã thiếu thành null) sinh từ `conf/schema` bằng `scripts/gen_dbt_staging.py`; unit test kiểm file sinh ra luôn khớp conf | Viết tay 66 cột với mã thiếu sẽ lệch ngay khi sửa conf. Số tiền dùng `DECIMAL(20, 4)` để tổng dư nợ ở Gold khớp chính xác Bronze (AC-05) |
+| 8 | `sat_loan_termination` chỉ nhận dòng có sự kiện kết thúc (`zero_balance_code` hoặc `defect_settlement_date` có giá trị) | Các tháng khác có mọi cột kết thúc đều null; nếu đưa vào, mỗi khoản vay có thêm một phiên bản "toàn null" vô nghĩa |
+| 9 | `link` viết lại cùng lõi với `hub` (`_spark_insert_new_keys`), không dùng `QUALIFY` (tiếp R-26) | Hai macro chỉ khác điều kiện khóa ngoại khác null |
+| 10 | dbt cài trong virtualenv riêng `/opt/dbt-venv` của image Airflow | dbt-core và Airflow ràng buộc khác nhau trên thư viện dùng chung |
+| 11 | `dbt-core-experimental-parser` (phụ thuộc của dbt-core 1.12) chỉ có sdist, lúc cài tải wheel 55 MB từ GitHub Releases. Wheel được tải sẵn vào `docker/airflow/wheels/` (kiểm sha256 theo `assets.json` của gói, không đưa vào git) và cài qua `--find-links` | Mạng tới GitHub Releases ngày 30/10 chỉ khoảng 40 KB/s, build treo. Thư mục rỗng thì pip tải như thường, nên không mất tính tái lập |
+| 12 | Một kỳ chỉ được coi là đã nạp xong khi có lần chạy SUCCESS đã qua cổng chất lượng (`rows_clean` có giá trị) | Các lần chạy của DAG giai đoạn 1 chưa có cổng chất lượng và Raw Vault; `make run-all` phải chạy lại chúng |
+| 13 | Unit test hash (FR-06) chạy trên SQL thật do automate_dv sinh ra (seed `hash_cases` và test `assert_hash_rules`), không viết lại thuật toán bằng Python | Viết lại bằng Python chỉ chứng minh bản Python đúng, không chứng minh dbt đúng |

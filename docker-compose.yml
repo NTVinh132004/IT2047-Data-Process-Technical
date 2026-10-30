@@ -21,6 +21,7 @@ x-airflow: &airflow
     PYTHONPATH: /opt/project
     SPARK_CONF_DIR: /opt/project/docker/spark/conf
     ANALYTICS_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/analytics
+    DBT_PROFILES_DIR: /opt/project/dbt
   volumes:
     - .:/opt/project
     - ./data/raw:/data/raw:ro

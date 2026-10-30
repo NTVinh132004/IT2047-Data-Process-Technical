@@ -52,11 +52,16 @@ def finish(airflow_run_id: str, status: str, error: str | None = None, **counts:
 
 
 def pending_periods(cfg: Config | None = None) -> list[str]:
-    """Các kỳ trong conf chưa có lần chạy SUCCESS, theo thứ tự thời gian (FR-01)."""
+    """Các kỳ trong conf chưa có lần chạy SUCCESS, theo thứ tự thời gian (FR-01).
+
+    Lần chạy chỉ tính khi đã qua cổng chất lượng (rows_clean có giá trị): lần chạy của DAG giai đoạn 1, chưa có
+    cổng chất lượng và Raw Vault, không được coi là đã nạp xong kỳ.
+    """
     cfg = cfg or Config()
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT DISTINCT period FROM control.load_control WHERE status = 'SUCCESS' AND dataset = %s",
+            "SELECT DISTINCT period FROM control.load_control"
+            " WHERE status = 'SUCCESS' AND rows_clean IS NOT NULL AND dataset = %s",
             (cfg.source,),
         )
         done = {r[0] for r in cur.fetchall()}
