@@ -1,0 +1,48 @@
+{
+  "gate": "C0",
+  "commit": "9973eab",
+  "uncommitted_changes": false,
+  "ran_at": "2026-10-30T06:18:07",
+  "counts": {
+    "s1": {
+      "perf_rows": 28069,
+      "hub_rows": 16027,
+      "hub_distinct_nk": 16027,
+      "sat_rows": 28069,
+      "sat_dup_keys": 0,
+      "sat_load_dates": 2
+    },
+    "s2": {
+      "perf_rows": 28069,
+      "hub_rows": 16027,
+      "hub_distinct_nk": 16027,
+      "sat_rows": 28069,
+      "sat_dup_keys": 0,
+      "sat_load_dates": 2
+    },
+    "s3a": {
+      "perf_rows": 28069,
+      "hub_rows": 16027,
+      "hub_distinct_nk": 16027,
+      "sat_rows": 28069,
+      "sat_dup_keys": 0,
+      "sat_load_dates": 2
+    },
+    "s3b": {
+      "perf_rows": 28069,
+      "hub_rows": 16027,
+      "hub_distinct_nk": 16027,
+      "sat_rows": 28069,
+      "sat_dup_keys": 0,
+      "sat_load_dates": 2
+    }
+  },
+  "checks": {
+    "R-01: Satellite = số dòng perf 2 tháng": true,
+    "R-01: không trùng (hash_key, load_date)": true,
+    "Hub: mỗi khoản vay một dòng": true,
+    "R-08: chạy lại 201904 sau 201905 sinh 0 dòng (nạp 2 tháng một lần)": true,
+    "Nạp từng tháng cho cùng kết quả": true,
+    "R-08: chạy lại 201904 sau 201905 sinh 0 dòng (nạp từng tháng)": true
+  }
+}
