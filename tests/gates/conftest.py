@@ -19,7 +19,8 @@ def sh(*cmd: str, timeout: int = 3600, check: bool = True, cwd: Path = ROOT) -> 
 def save_gate_result(gate: str, data: dict) -> Path:
     """Lưu commit, thời điểm và kết quả của một lần chạy cổng vào tests/gates/results/."""
     commit = sh("git", "rev-parse", "--short", "HEAD", check=False).stdout.strip() or "chua-commit"
-    dirty = bool(sh("git", "status", "--porcelain", check=False).stdout.strip())
+    # Bỏ qua thư mục kết quả: chính các file kết quả mới sinh ra không phải là thay đổi code
+    dirty = bool(sh("git", "status", "--porcelain", "--", ".", ":(exclude)tests/gates/results", check=False).stdout.strip())
     record = {"gate": gate, "commit": commit, "uncommitted_changes": dirty,
               "ran_at": datetime.now().isoformat(timespec="seconds"), **data}
     path = RESULTS / f"{gate.lower()}-{datetime.now():%Y%m%d-%H%M%S}.json"
