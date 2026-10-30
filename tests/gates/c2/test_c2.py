@@ -2,7 +2,8 @@
 
 - Unit test hash (FR-06), chạy trên SQL thật do automate_dv sinh ra
 - Cổng chất lượng chặn đúng từng dòng lỗi của bộ fixture giả lập (make smoke)
-- AC-06 ở mọi kỳ: dòng sạch + quarantine = dòng Bronze; không dòng quarantine nào vào Raw Vault
+- AC-06 ở mọi kỳ: dòng sạch + quarantine (hard rule) + bản sao khử trùng lặp = dòng Bronze; không dòng quarantine nào
+  vào Raw Vault; dòng vi phạm soft rule vẫn vào Raw Vault (FR-07, R-33)
 - AC-03: số khoản vay trong hub_loan
 - AC-02: chạy lại kỳ gần nhất và một kỳ cũ sinh 0 dòng mới ở Hub, Link, Satellite
 - 100% dòng Raw Vault có load_date, record_source
@@ -29,7 +30,8 @@ INJECT_PERIOD = "2019Q3"
 HUBS = ["hub_loan", "hub_seller", "hub_servicer"]
 LINKS = ["link_loan_seller", "link_loan_servicer"]
 SATS = ["sat_loan_origination", "sat_loan_property", "sat_loan_balance", "sat_loan_delinquency", "sat_loan_termination"]
-RAW_VAULT = HUBS + LINKS + SATS
+XTS = ["xts_loan", "xts_loan_servicer"]
+RAW_VAULT = HUBS + LINKS + SATS + XTS
 RESULT: dict = {}
 
 
@@ -40,7 +42,9 @@ def spark_sql(query: str) -> list[dict]:
              "-e", query).stdout
     # Dòng tiêu đề cột dính liền dấu nhắc của beeline ("0: jdbc:hive2://...> t,n"): bóc dấu nhắc, giữ nội dung
     lines = [re.sub(r"^\d+: jdbc:hive2://\S+> ?", "", line) for line in out.splitlines()]
-    return list(csv.DictReader(io.StringIO("\n".join(line for line in lines if line))))
+    rows = csv.DictReader(io.StringIO("\n".join(line for line in lines if line)))
+    # beeline in null thành chuỗi NULL
+    return [{k: (None if v == "NULL" else v) for k, v in row.items()} for row in rows]
 
 
 def delta_rows_per_period(database: str, table: str) -> Counter:
@@ -57,16 +61,15 @@ def raw_vault_counts() -> dict[str, int]:
     return {r["t"]: int(r["n"]) for r in spark_sql(union)}
 
 
-def load_control_latest(cfg: Config) -> dict:
+def layer_runs_since(cfg: Config, run_id: int) -> list[dict]:
     import psycopg
 
     env = dotenv()
     with psycopg.connect(host="127.0.0.1", dbname="analytics", user=env["POSTGRES_USER"],
                          password=env["POSTGRES_PASSWORD"]) as conn, conn.cursor() as cur:
-        cur.execute("SELECT period, status, error FROM control.load_control WHERE dataset = %s ORDER BY run_id DESC LIMIT 1",
-                    (cfg.source,))
-        period, status, error = cur.fetchone()
-        return {"period": period, "status": status, "error": error}
+        cur.execute("SELECT run_id, period, layer, status FROM control.layer_run WHERE dataset = %s AND run_id > %s"
+                    " ORDER BY run_id", (cfg.source, run_id))
+        return [dict(zip(("run_id", "period", "layer", "status"), row)) for row in cur.fetchall()]
 
 
 @pytest.fixture(scope="module")
@@ -110,12 +113,16 @@ def test_ac06_every_period(loaded, cfg):
         b = delta_rows_per_period(bronze, cfg.bronze[f"{kind}_table"])
         c = delta_rows_per_period(quality, f"{kind}_clean")
         q = delta_rows_per_period(quality, f"{kind}_quarantine")
+        d = delta_rows_per_period(quality, f"{kind}_dedup")
+        v = delta_rows_per_period(quality, f"{kind}_soft_violation")
         for p in periods:
             totals[f"{kind}_bronze"] += b[p]
             totals[f"{kind}_clean"] += c[p]
             totals[f"{kind}_quarantine"] += q[p]
-            if b[p] != c[p] + q[p]:
-                mismatches[f"{kind} {p}"] = {"bronze": b[p], "clean": c[p], "quarantine": q[p]}
+            totals[f"{kind}_dedup"] += d[p]
+            totals[f"{kind}_soft_violation"] += v[p]
+            if b[p] != c[p] + q[p] + d[p]:
+                mismatches[f"{kind} {p}"] = {"bronze": b[p], "clean": c[p], "quarantine": q[p], "dedup": d[p]}
     RESULT["ac06_totals"] = dict(totals)
     assert not mismatches, mismatches
 
@@ -169,13 +176,16 @@ def test_ac02_rerun_latest_and_older_period(loaded):
 
 
 def test_failing_dbt_test_stops_dag(loaded, cfg):
-    """FR-22: bật một dbt test cố ý sai, DAG phải thất bại ở task raw_vault và không chạy finish_run."""
+    """FR-22: bật một dbt test cố ý sai, tầng Raw Vault phải thất bại và tầng Business Vault không được chạy."""
     before = raw_vault_counts()
-    out = sh("scripts/run_period.sh", INJECT_PERIOD, '{"inject_test_failure": true}', check=False, timeout=3600)
-    latest = load_control_latest(cfg)
-    RESULT["fr22"] = {"exit_code": out.returncode, "load_control": latest}
+    last = max((r["run_id"] for r in layer_runs_since(cfg, 0)), default=0)
+    out = sh("scripts/run_period.sh", INJECT_PERIOD, '{"inject_test_failure": true, "max_attempts": 1}',
+             check=False, timeout=3600)
+    runs = layer_runs_since(cfg, last)
+    RESULT["fr22"] = {"exit_code": out.returncode, "runs": runs}
     assert out.returncode != 0
-    assert latest["period"] == INJECT_PERIOD and latest["status"] == "FAILED"
+    assert [(r["layer"], r["status"]) for r in runs if r["layer"] == "raw_vault"] == [("raw_vault", "FAILED")]
+    assert not any(r["layer"] == "business_vault" for r in runs)
     assert raw_vault_counts() == before
     # Chạy lại bình thường để kỳ không bị coi là chưa xong
     sh("make", "run", f"PERIOD={INJECT_PERIOD}", timeout=3600)

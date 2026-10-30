@@ -27,3 +27,15 @@ bronze:
 quality:
   # Cổng chất lượng (FR-07): <x>_clean cho dbt, <x>_quarantine kèm lý do; ghi đè lát của kỳ
   database: quality
+corrections:
+  # Đợt sửa dữ liệu giả lập (FR-14, AC-09): nạp sau kỳ cuối, load_date mới, record_source riêng. Khoản vay được chọn
+  # theo seed từ Bronze lúc chạy (không lưu dữ liệu thật trong repo); mỗi cột cộng độ lệch, chỉ chọn khoản vay
+  # mà giá trị sau sửa còn trong miền giá trị.
+  CORR1:
+    load_date: "2026-05-01"
+    record_source: "freddiemac.sflld.correction_1"
+    loans: 20
+    seed: 47
+    changes:
+      credit_score: 20
+      orig_dti: -5

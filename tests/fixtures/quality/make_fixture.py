@@ -45,18 +45,30 @@ def line(schema, values: dict, drop_last: bool = False) -> str:
 
 def main() -> None:
     cfg = Config()
-    orig, perf, rejected = [], [], []
+    orig, perf, quarantine, dedup, soft = [], [], [], [], []
 
-    def add_orig(n, reason=None, drop_last=False, **override):
+    def record(kind, table, loan_id, month, extra):
+        row = {"table": table, "loan_id": loan_id, **({"reporting_period": month} if table == "perf" else {}), **extra}
+        {"quarantine": quarantine, "dedup": dedup, "soft": soft}[kind].append(row)
+
+    def add_orig(n, hard=None, drop_last=False, soft_on=None, copy=False, **override):
         orig.append(line(cfg.orig, {**ORIG_DEFAULTS, "loan_id": loan(n), **override}, drop_last))
-        if reason:
-            rejected.append({"table": "orig", "loan_id": loan(n), "reason": reason})
+        if hard:
+            record("quarantine", "orig", loan(n), None, {"reason": hard})
+        if soft_on:
+            record("soft", "orig", loan(n), None, {"rule": soft_on[0], "column": soft_on[1]})
+        if copy:
+            record("dedup", "orig", loan(n), None, {})
 
-    def add_perf(n, month, reason=None, drop_last=False, loan_id=None, **override):
+    def add_perf(n, month, hard=None, drop_last=False, loan_id=None, soft_on=None, copy=False, **override):
         lid = loan_id or loan(n)
         perf.append(line(cfg.perf, {**PERF_DEFAULTS, "loan_id": lid, "reporting_period": month, **override}, drop_last))
-        if reason:
-            rejected.append({"table": "perf", "loan_id": lid, "reporting_period": month, "reason": reason})
+        if hard:
+            record("quarantine", "perf", lid, month, {"reason": hard})
+        if soft_on:
+            record("soft", "perf", lid, month, {"rule": soft_on[0], "column": soft_on[1]})
+        if copy:
+            record("dedup", "perf", lid, month, {})
 
     # 5 khoản vay hợp lệ, đủ 3 tháng
     for n in range(9900001, 9900006):
@@ -66,43 +78,50 @@ def main() -> None:
     # Mã thiếu không phải lỗi: FICO 9999, DTI 999, tình trạng quá hạn XX
     add_orig(9900006, credit_score="9999", orig_dti="999")
     add_perf(9900006, "201904", delinquency_status="XX")
-    # sai_so_truong: thiếu trường cuối
+    # Hard rule: sai_so_truong (thiếu trường cuối) vào error mart
     add_orig(9900007, "sai_so_truong", drop_last=True)
-    add_perf(9900007, "201904")
+    add_perf(9900007, "201904")  # orig vẫn có ở Bronze nên dòng này không mồ côi
     add_orig(9900008)
     add_perf(9900008, "201904", "sai_so_truong", drop_last=True)
-    # sai_khoa: mã khoản vay sai mẫu (dòng perf này cũng không có orig, nhưng lý do chính là sai_khoa)
+    # Hard rule: sai_khoa (mã sai mẫu); dòng này cũng không có orig nhưng đã vào error mart nên không tính mồ côi
     add_perf(0, "201905", "sai_khoa", loan_id="X19Q2BADKEY1")
-    # sai_kieu: số có chữ cái
+    # Hard rule: sai_kieu (số có chữ cái)
     add_orig(9900009, "sai_kieu", orig_upb="25O000")
     add_perf(9900009, "201904")
     add_orig(9900010)
     add_perf(9900010, "201904", "sai_kieu", current_upb="12O000.00")
-    # ngoai_mien: giá trị ngoài miền hoặc ngoài danh sách mã
-    add_orig(9900011, "ngoai_mien", credit_score="200")
+    # Soft rule: ngoai_mien. Dòng vẫn sạch, vào Raw Vault, chỉ ghi báo cáo vi phạm (R-33)
+    add_orig(9900011, soft_on=("ngoai_mien", "credit_score"), credit_score="200")
     add_perf(9900011, "201904")
-    add_orig(9900012, "ngoai_mien", occupancy_status="X")
+    add_orig(9900012, soft_on=("ngoai_mien", "occupancy_status"), occupancy_status="X")
     add_perf(9900012, "201904")
     add_orig(9900013)
-    add_perf(9900013, "201905", "ngoai_mien", delinquency_status="ZZ")
-    # trung_khoa: mọi bản sao của khóa trùng đều bị chặn, vì không biết bản nào đúng
+    add_perf(9900013, "201905", soft_on=("ngoai_mien", "delinquency_status"), delinquency_status="ZZ")
+    # Trùng khóa khác giá trị: không nạp được (trùng khóa Satellite), mọi bản vào error mart
     add_orig(9900014, "trung_khoa")
     add_orig(9900014, "trung_khoa", orig_upb="260000")
     add_perf(9900014, "201904")
     add_orig(9900015)
     add_perf(9900015, "201905", "trung_khoa")
     add_perf(9900015, "201905", "trung_khoa", current_upb="249000.00")
-    # mo_coi: perf hợp lệ nhưng khoản vay không có trong orig
-    add_perf(9900099, "201904", "mo_coi")
-    # Dòng perf của khoản vay có orig bị chặn vẫn sạch: luật mồ côi so với orig ở Bronze (từ điển mục 5)
+    # Bản sao giống hệt: khử trùng lặp, giữ một bản sạch, bản còn lại vào <x>_dedup
+    add_orig(9900016)
+    add_orig(9900016, copy=True)
+    add_perf(9900016, "201904")
+    add_perf(9900016, "201904", copy=True)
+    # Soft rule: mo_coi. Perf hợp lệ nhưng khoản vay không có trong orig; vẫn sạch, ghi báo cáo vi phạm
+    add_perf(9900099, "201904", soft_on=("mo_coi", "loan_id"))
 
     (OUT / "sample_orig_2019.txt").write_text("\n".join(orig) + "\n")
     (OUT / "sample_perf_2019.txt").write_text("\n".join(perf) + "\n")
     summary = {}
     for table, rows in (("orig", orig), ("perf", perf)):
-        bad = [r for r in rejected if r["table"] == table]
-        summary[table] = {"bronze_rows": len(rows), "rejected_rows": len(bad), "clean_rows": len(rows) - len(bad)}
-    expected = {"period": PERIOD, "summary": summary, "rejected": rejected}
+        n_bad = sum(1 for r in quarantine if r["table"] == table)
+        n_copy = sum(1 for r in dedup if r["table"] == table)
+        summary[table] = {"bronze_rows": len(rows), "quarantine_rows": n_bad, "dedup_rows": n_copy,
+                          "clean_rows": len(rows) - n_bad - n_copy,
+                          "soft_violations": sum(1 for r in soft if r["table"] == table)}
+    expected = {"period": PERIOD, "summary": summary, "quarantine": quarantine, "dedup": dedup, "soft_violation": soft}
     (OUT / "expected.yml").write_text(
         "# Sinh bởi make_fixture.py, đừng sửa tay. Kết quả cổng chất lượng mong đợi cho kỳ " + PERIOD + "\n"
         + yaml.safe_dump(expected, allow_unicode=True, sort_keys=False)

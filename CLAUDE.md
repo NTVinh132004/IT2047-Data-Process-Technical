@@ -11,12 +11,16 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 - Idempotent: Bronze và quarantine ghi đè lát của kỳ (`replaceWhere`); Satellite bỏ qua dòng (`hash_key`, `load_date`) đã có; chạy lại kỳ cũ cũng sinh 0 dòng.
 - FR-14 (đợt sửa dữ liệu + bảng đối chứng ghi đè, AC-09) là bằng chứng chính cho việc chọn Data Vault, là Must.
 
+## Nguyên tắc phát triển (bắt buộc)
+
+@docs/principles.md
+
 ## Quy tắc làm việc
 
 - Mỗi giai đoạn kết thúc bằng cổng kiểm thử C0–C7 (Kế hoạch mục 6). Code của giai đoạn sau chỉ bắt đầu khi cổng trước đạt. Không nới tiêu chí để qua cổng mà không ghi vào lịch sử thay đổi của PRD.
 - Đổi FR, AC hoặc kiến trúc: ghi vào `docs/review.md`, sửa PRD, Kế hoạch và test cổng trong cùng một pull request, tăng phiên bản PRD.
 - Lệnh `make` chưa cài đặt phải thoát với mã lỗi, không giả vờ chạy được.
-- Không commit dữ liệu (`data/` đã được ignore). Tài liệu viết bằng tiếng Việt.
+- Không commit dữ liệu (`data/` đã được ignore). Tài liệu viết bằng tiếng Việt, trừ `docs/principles.md` (tiếng Anh theo yêu cầu chủ repo).
 
 ## Trạng thái (30/10/2026)
 

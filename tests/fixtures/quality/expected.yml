@@ -2,14 +2,18 @@
 period: 2019Q2
 summary:
   orig:
-    bronze_rows: 16
-    rejected_rows: 6
-    clean_rows: 10
+    bronze_rows: 18
+    quarantine_rows: 4
+    dedup_rows: 1
+    clean_rows: 13
+    soft_violations: 2
   perf:
-    bronze_rows: 28
-    rejected_rows: 7
-    clean_rows: 21
-rejected:
+    bronze_rows: 30
+    quarantine_rows: 5
+    dedup_rows: 1
+    clean_rows: 24
+    soft_violations: 2
+quarantine:
 - table: orig
   loan_id: F19Q29900007
   reason: sai_so_truong
@@ -29,30 +33,41 @@ rejected:
   reporting_period: '201904'
   reason: sai_kieu
 - table: orig
+  loan_id: F19Q29900014
+  reason: trung_khoa
+- table: orig
+  loan_id: F19Q29900014
+  reason: trung_khoa
+- table: perf
+  loan_id: F19Q29900015
+  reporting_period: '201905'
+  reason: trung_khoa
+- table: perf
+  loan_id: F19Q29900015
+  reporting_period: '201905'
+  reason: trung_khoa
+dedup:
+- table: orig
+  loan_id: F19Q29900016
+- table: perf
+  loan_id: F19Q29900016
+  reporting_period: '201904'
+soft_violation:
+- table: orig
   loan_id: F19Q29900011
-  reason: ngoai_mien
+  rule: ngoai_mien
+  column: credit_score
 - table: orig
   loan_id: F19Q29900012
-  reason: ngoai_mien
+  rule: ngoai_mien
+  column: occupancy_status
 - table: perf
   loan_id: F19Q29900013
   reporting_period: '201905'
-  reason: ngoai_mien
-- table: orig
-  loan_id: F19Q29900014
-  reason: trung_khoa
-- table: orig
-  loan_id: F19Q29900014
-  reason: trung_khoa
-- table: perf
-  loan_id: F19Q29900015
-  reporting_period: '201905'
-  reason: trung_khoa
-- table: perf
-  loan_id: F19Q29900015
-  reporting_period: '201905'
-  reason: trung_khoa
+  rule: ngoai_mien
+  column: delinquency_status
 - table: perf
   loan_id: F19Q29900099
   reporting_period: '201904'
-  reason: mo_coi
+  rule: mo_coi
+  column: loan_id

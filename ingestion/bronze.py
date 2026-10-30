@@ -69,6 +69,10 @@ def write_slice(df: DataFrame, table: str, period: str, record_source: str) -> N
 def run(period: str, conf_dir: str | None = None, spark: SparkSession | None = None) -> dict:
     cfg = Config(conf_dir)
     spark = spark or get_spark(f"bronze-{period}")
+    if period in cfg.pipeline.get("corrections", {}):
+        from ingestion import correction
+
+        return correction.write(spark, cfg, period)
     landing.ensure(cfg, spark=spark)
     database = cfg.bronze["database"]
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {database}")

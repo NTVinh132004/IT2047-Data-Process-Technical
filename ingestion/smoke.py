@@ -1,7 +1,8 @@
 """Kiểm nhanh luồng landing → Bronze → cổng chất lượng trên bộ fixture giả lập (make smoke).
 
 Dùng bản sao conf/ trỏ tới tests/fixtures/quality và các database *_smoke, nên không đụng dữ liệu thật.
-So từng dòng bị chặn (khoản vay, tháng, lý do) và số dòng sạch với tests/fixtures/quality/expected.yml.
+So error mart (khoản vay, tháng, lý do), bản sao bị khử trùng lặp, báo cáo vi phạm soft rule và số dòng sạch
+với tests/fixtures/quality/expected.yml.
 Thoát mã 1 nếu lệch. Chạy trong container airflow-scheduler: python -m ingestion.smoke
 """
 import json
@@ -44,16 +45,29 @@ def main() -> int:
     bronze.run(period, conf, spark=spark)
     counts = quality.run(period, conf, spark=spark)
 
-    def rejected(kind: str) -> Counter:
-        rows = spark.table(f"quality_smoke.{kind}_quarantine").where(F.col("period") == period).collect()
-        return Counter((r["loan_id"], r["reporting_period"] if kind == "perf" else None, r["_reject_reason"]) for r in rows)
+    def table_rows(kind: str, suffix: str) -> list:
+        return spark.table(f"quality_smoke.{kind}_{suffix}").where(F.col("period") == period).collect()
+
+    def key(r, kind: str) -> tuple:
+        return (r["loan_id"], r["reporting_period"] if kind == "perf" else None)
 
     problems = []
     for kind in ("orig", "perf"):
-        want = Counter((r["loan_id"], r.get("reporting_period"), r["reason"]) for r in expected["rejected"] if r["table"] == kind)
-        got = rejected(kind)
-        if got != want:
-            problems.append({kind: {"thiếu": list((want - got).elements()), "thừa": list((got - want).elements())}})
+        def want(section: str, fields: tuple) -> Counter:
+            return Counter((x["loan_id"], x.get("reporting_period"), *(x[f] for f in fields))
+                           for x in expected[section] if x["table"] == kind)
+
+        got = {
+            "quarantine": Counter((*key(r, kind), r["_reject_reason"]) for r in table_rows(kind, "quarantine")),
+            "dedup": Counter(key(r, kind) for r in table_rows(kind, "dedup")),
+            "soft_violation": Counter((*key(r, kind), r["rule"], r["column"]) for r in table_rows(kind, "soft_violation")),
+        }
+        wanted = {"quarantine": want("quarantine", ("reason",)), "dedup": want("dedup", ()),
+                  "soft_violation": want("soft_violation", ("rule", "column"))}
+        for section in wanted:
+            if got[section] != wanted[section]:
+                problems.append({f"{kind}_{section}": {"thiếu": list((wanted[section] - got[section]).elements()),
+                                                       "thừa": list((got[section] - wanted[section]).elements())}})
         if counts[f"{kind}_clean"] != expected["summary"][kind]["clean_rows"]:
             problems.append({kind: f"dòng sạch {counts[f'{kind}_clean']}, mong đợi {expected['summary'][kind]['clean_rows']}"})
     print(json.dumps({"counts": counts, "problems": problems}, ensure_ascii=False, default=str))

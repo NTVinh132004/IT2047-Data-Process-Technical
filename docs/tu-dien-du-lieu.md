@@ -115,12 +115,15 @@ Tỷ lệ quá hạn 30/60/90+ của tháng m bằng số khoản vay đang ho�
 
 **Trạng thái vòng đời** (`bsat_loan_lifecycle`, tại tháng m, theo thứ tự ưu tiên):
 
+Cài đặt: `dbt/models/business_vault/bsat_loan_risk.sql` và `bsat_loan_lifecycle.sql`; cổng C3 so với cách tính độc lập ở `tests/gates/c3/oracle.py`.
+
 | Trạng thái | Điều kiện |
 | --- | --- |
 | `DEFECT` | `zero_balance_code = 96` |
 | `LIQUIDATED` | `zero_balance_code` thuộc `02`, `03`, `09` |
 | `SOLD` | `zero_balance_code` thuộc `15`, `16` |
-| `PREPAID` | `zero_balance_code = 01` |
+| `PREPAID` | `zero_balance_code = 01` và `zero_balance_date` trước `maturity_date` |
+| `MATURED` | `zero_balance_code = 01` từ `maturity_date` trở đi |
 | `DEFAULTED` | Đã vỡ nợ đến tháng m nhưng chưa có `zero_balance_code` |
 | `FORBEARANCE` | `borrower_assistance_plan = F` |
 | `DELINQUENT` | Mã quá hạn khác `00` |
@@ -128,19 +131,19 @@ Tỷ lệ quá hạn 30/60/90+ của tháng m bằng số khoản vay đang ho�
 
 ## 5. Luật chất lượng cho cổng FR-07
 
-Vì bộ mẫu không có lỗi, test cổng C2 cần một tệp fixture nhỏ cố ý chứa từng loại lỗi dưới đây.
+Theo chuẩn Data Vault 2.0, trước Raw Vault chỉ áp hard rule (điều chỉnh kỹ thuật không đổi nghĩa dữ liệu); soft rule (kiểm tra nghiệp vụ) không được chặn dữ liệu vào Raw Vault (review R-33, `docs/danh-gia-kien-truc-dv2.md` mục 3.2). Bộ mẫu không có dòng lỗi nào, nên test cổng C2 dùng một tệp fixture giả lập chứa từng loại lỗi.
 
-| Luật | Áp dụng | Lý do chặn |
-| --- | --- | --- |
-| Số trường đúng 31 (orig) / 35 (perf) | Mọi dòng | `sai_so_truong` |
-| `loan_id` khớp mẫu `^[FA]\d{2}Q[1-4]\d{7}$` | orig, perf | `sai_khoa` |
-| Cột kiểu `int`, `decimal`, `yyyymm` ép kiểu được | Theo `conf/schema` | `sai_kieu` |
-| Giá trị nằm trong `domain` hoặc `values`, khớp `pattern`, hoặc là mã `missing` | Theo `conf/schema` | `ngoai_mien` |
-| Cột không khai báo `nullable` thì phải có giá trị | Theo `conf/schema` | `ngoai_mien` |
-| Không trùng (`loan_id`) ở orig, (`loan_id`, `reporting_period`) ở perf; mọi bản sao bị chặn | Trong lát kỳ, giữa các dòng đã qua các luật trên | `trung_khoa` |
-| Dòng perf có `loan_id` trong orig (Bronze, mọi kỳ đến kỳ hiện tại) | perf | `mo_coi` |
+| Luật | Áp dụng | Loại | Xử lý | Lý do ghi |
+| --- | --- | --- | --- | --- |
+| Số trường đúng 31 (orig) / 35 (perf) | Mọi dòng | Hard | Error mart | `sai_so_truong` |
+| `loan_id` khớp mẫu `^[FA]\d{2}Q[1-4]\d{7}$` | orig, perf | Hard | Error mart | `sai_khoa` |
+| Cột kiểu `int`, `decimal`, `yyyymm` ép kiểu được | Theo `conf/schema` | Hard | Error mart | `sai_kieu` |
+| Trùng (`loan_id`) ở orig, (`loan_id`, `reporting_period`) ở perf, các bản sao giống hệt | Trong lát kỳ | Hard (khử trùng lặp) | Giữ một bản, các bản còn lại ghi vào báo cáo khử trùng lặp | `ban_sao` |
+| Trùng khóa như trên nhưng các bản khác giá trị | Trong lát kỳ | Hard (không nạp được: trùng khóa Satellite) | Error mart, mọi bản sao | `trung_khoa` |
+| Giá trị nằm trong `domain` hoặc `values`, khớp `pattern`, hoặc là mã `missing`; cột không `nullable` phải có giá trị | Theo `conf/schema` | Soft | Vẫn vào Raw Vault; ghi vào báo cáo vi phạm | `ngoai_mien` |
+| Dòng perf có `loan_id` trong orig ở Bronze | perf | Soft | Vẫn vào Raw Vault (`hub_loan` nạp cả từ perf); ghi vào báo cáo vi phạm | `mo_coi` |
 
-Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi: Bronze giữ nguyên, staging đổi thành null. Mỗi dòng lỗi mang một lý do chính, theo thứ tự các dòng trong bảng trên (review R-29). Cài đặt: `ingestion/quality.py`; kiểm bằng `make smoke` trên bộ fixture giả lập.
+Mã thiếu (`9999`, `999`, `99`, `9`, `7`, `XX`) không phải lỗi: Bronze giữ nguyên, staging đổi thành null. Mỗi dòng vào error mart mang một lý do chính theo thứ tự các hard rule trong bảng; một dòng có thể có nhiều vi phạm soft rule. Cài đặt: `ingestion/quality.py`; kiểm bằng `make smoke` trên bộ fixture giả lập.
 
 ## 6. File tải trước Release 47
 

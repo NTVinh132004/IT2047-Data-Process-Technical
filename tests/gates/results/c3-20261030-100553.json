@@ -1,0 +1,99 @@
+{
+  "gate": "C3",
+  "commit": "b1fcd82",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T10:05:53",
+  "fr12": {
+    "loans": 20,
+    "months_compared": 983,
+    "mismatches": 0,
+    "groups": {
+      "vo_no": 926,
+      "tung_90_chua_vo_no": 1860,
+      "hoan_tra_covid": 3310,
+      "tra_truoc_han": 35551,
+      "luon_dung_han": 11042
+    }
+  },
+  "ac04": {
+    "bronze_rows": "3615",
+    "missing_in_pit": "0",
+    "mismatched": "0"
+  },
+  "dbt_test_business_vault": "\u001b[0m09:56:54  Done. PASS=37 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=37",
+  "rerun": {
+    "period": "2020Q1",
+    "before": {
+      "business_vault.as_of_dates": 87,
+      "business_vault.pit_loan_monthly": 1934614,
+      "business_vault.bsat_loan_risk": 1934614,
+      "business_vault.bsat_loan_lifecycle": 1934614,
+      "raw_vault.sat_loan_origination": 50001,
+      "raw_vault.xts_loan": 1984614,
+      "baseline.baseline_dim_loan_overwrite": 50000
+    },
+    "after": {
+      "business_vault.as_of_dates": 87,
+      "business_vault.pit_loan_monthly": 1934614,
+      "business_vault.bsat_loan_risk": 1934614,
+      "business_vault.bsat_loan_lifecycle": 1934614,
+      "raw_vault.sat_loan_origination": 50001,
+      "raw_vault.xts_loan": 1984614,
+      "baseline.baseline_dim_loan_overwrite": 50000
+    }
+  },
+  "ac09": {
+    "corrected": 20,
+    "checked": 20,
+    "wrong": [],
+    "sample": [
+      {
+        "loan_id": "<đã ẩn, EP-08>",
+        "old_score": "745",
+        "new_score": "765",
+        "pit_before": "745",
+        "pit_after": "765",
+        "overwrite_table": "765",
+        "overwrite_rows": "1"
+      },
+      {
+        "loan_id": "<đã ẩn, EP-08>",
+        "old_score": "798",
+        "new_score": "818",
+        "pit_before": "798",
+        "pit_after": "818",
+        "overwrite_table": "818",
+        "overwrite_rows": "1"
+      },
+      {
+        "loan_id": "<đã ẩn, EP-08>",
+        "old_score": "765",
+        "new_score": "785",
+        "pit_before": "765",
+        "pit_after": "785",
+        "overwrite_table": "785",
+        "overwrite_rows": "1"
+      }
+    ]
+  },
+  "correction_rerun": {
+    "before": {
+      "business_vault.as_of_dates": 88,
+      "business_vault.pit_loan_monthly": 1934634,
+      "business_vault.bsat_loan_risk": 1934614,
+      "business_vault.bsat_loan_lifecycle": 1934614,
+      "raw_vault.sat_loan_origination": 50021,
+      "raw_vault.xts_loan": 1984634,
+      "baseline.baseline_dim_loan_overwrite": 50000
+    },
+    "after": {
+      "business_vault.as_of_dates": 88,
+      "business_vault.pit_loan_monthly": 1934634,
+      "business_vault.bsat_loan_risk": 1934614,
+      "business_vault.bsat_loan_lifecycle": 1934614,
+      "raw_vault.sat_loan_origination": 50021,
+      "raw_vault.xts_loan": 1984634,
+      "baseline.baseline_dim_loan_overwrite": 50000
+    }
+  }
+}

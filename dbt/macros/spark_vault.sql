@@ -1,7 +1,8 @@
 {# Bản Spark mã nguồn mở của automate_dv.databricks__hub, __link và __sat (automate_dv 0.11.5), review R-26.
    Spark 3.5 và 4.1 không có QUALIFY (cú pháp riêng của Databricks SQL), nên mỗi QUALIFY được thay bằng truy vấn
-   con tính cột cửa sổ rồi lọc bằng WHERE. Logic còn lại giữ như bản gốc; bỏ các nhánh dự án không dùng:
-   vault_insert_by_rank/period, ghost record, BigQuery. Macro tiện ích (prefix, multikey...) vẫn của automate_dv. #}
+   con tính cột cửa sổ rồi lọc bằng WHERE. Logic còn lại giữ như bản gốc, kể cả ghost record của Satellite (R-33);
+   bỏ các nhánh dự án không dùng: vault_insert_by_rank/period, BigQuery. Macro tiện ích (prefix, multikey,
+   create_ghost_record...) vẫn của automate_dv. #}
 
 
 {#- Lõi chung của hub và link: mỗi khóa một dòng (load_date sớm nhất, hòa thì theo record_source), chỉ chèn khóa
@@ -77,6 +78,7 @@ SELECT * FROM records_to_insert
 {%- macro spark__sat(src_pk, src_hashdiff, src_payload, src_extra_columns, src_eff, src_ldts, src_source, source_model) -%}
 
 {%- set apply_source_filter = automate_dv.config_meta_get('apply_source_filter', false) -%}
+{%- set enable_ghost_record = var('enable_ghost_records', false) -%}
 {%- set source_cols = automate_dv.expand_column_list(columns=[src_pk, src_hashdiff, src_payload, src_extra_columns, src_eff, src_ldts, src_source]) -%}
 {%- set window_cols = automate_dv.expand_column_list(columns=[src_pk, src_hashdiff, src_ldts]) -%}
 {%- set is_incremental = automate_dv.is_any_incremental() -%}
@@ -148,8 +150,33 @@ unique_source_records AS (
         {%- endif %}
     ) AS q
     WHERE {{ automate_dv.prefix([src_hashdiff], 'q') }} != q.prev_hashdiff
+),
+
+{%- if enable_ghost_record %}
+
+{#- Một ghost record cho mỗi Satellite: zero key, load_date sớm nhất, record_source SYSTEM, payload null.
+    PIT trỏ tới nó khi khoản vay chưa có phiên bản tại một mốc (Scalefree, Ghost Records) #}
+ghost AS (
+    {{ automate_dv.create_ghost_record(src_pk=src_pk, src_hashdiff=src_hashdiff, src_payload=src_payload,
+                                       src_extra_columns=src_extra_columns, src_eff=src_eff, src_ldts=src_ldts,
+                                       src_source=src_source, source_model=source_model) }}
+),
+{%- endif %}
+
+records_to_insert AS (
+    {%- if enable_ghost_record %}
+    SELECT {{ automate_dv.alias_all(source_cols, 'g') }}
+    FROM ghost AS g
+    {%- if is_incremental %}
+    WHERE NOT EXISTS (SELECT 1 FROM {{ this }} AS h
+                      WHERE {{ automate_dv.prefix([src_hashdiff], 'h', alias_target='target') }} = {{ automate_dv.prefix([src_hashdiff], 'g') }})
+    {%- endif %}
+    UNION ALL
+    {%- endif %}
+    SELECT {{ automate_dv.alias_all(source_cols, 'usr') }}
+    FROM unique_source_records AS usr
 )
 
-SELECT * FROM unique_source_records
+SELECT * FROM records_to_insert
 
 {%- endmacro -%}

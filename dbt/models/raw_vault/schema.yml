@@ -1,4 +1,4 @@
-# Test Raw Vault (FR-22): khóa duy nhất, không null, quan hệ tới Hub, cột kiểm toán không null.
+# Test Raw Vault (FR-22): khóa duy nhất, không null, quan hệ tới Hub (bỏ qua ghost record), cột kiểm toán không null.
 version: 2
 models:
 - name: hub_loan
@@ -102,6 +102,8 @@ models:
     data_tests:
     - not_null
 - name: sat_loan_origination
+  description: Có một ghost record (zero key, load_date 1900-01-01, record_source
+    SYSTEM) cho PIT (R-33)
   data_tests:
   - dbt_utils.unique_combination_of_columns:
       arguments:
@@ -116,6 +118,8 @@ models:
         arguments:
           to: ref('hub_loan')
           field: LOAN_HK
+        config:
+          where: LOAN_HK <> '0000000000000000000000000000000000000000000000000000000000000000'
   - name: ORIGINATION_HASHDIFF
     data_tests:
     - not_null
@@ -126,6 +130,8 @@ models:
     data_tests:
     - not_null
 - name: sat_loan_property
+  description: Có một ghost record (zero key, load_date 1900-01-01, record_source
+    SYSTEM) cho PIT (R-33)
   data_tests:
   - dbt_utils.unique_combination_of_columns:
       arguments:
@@ -140,6 +146,8 @@ models:
         arguments:
           to: ref('hub_loan')
           field: LOAN_HK
+        config:
+          where: LOAN_HK <> '0000000000000000000000000000000000000000000000000000000000000000'
   - name: PROPERTY_HASHDIFF
     data_tests:
     - not_null
@@ -150,6 +158,8 @@ models:
     data_tests:
     - not_null
 - name: sat_loan_balance
+  description: Có một ghost record (zero key, load_date 1900-01-01, record_source
+    SYSTEM) cho PIT (R-33)
   data_tests:
   - dbt_utils.unique_combination_of_columns:
       arguments:
@@ -164,6 +174,8 @@ models:
         arguments:
           to: ref('hub_loan')
           field: LOAN_HK
+        config:
+          where: LOAN_HK <> '0000000000000000000000000000000000000000000000000000000000000000'
   - name: BALANCE_HASHDIFF
     data_tests:
     - not_null
@@ -174,6 +186,8 @@ models:
     data_tests:
     - not_null
 - name: sat_loan_delinquency
+  description: Có một ghost record (zero key, load_date 1900-01-01, record_source
+    SYSTEM) cho PIT (R-33)
   data_tests:
   - dbt_utils.unique_combination_of_columns:
       arguments:
@@ -188,6 +202,8 @@ models:
         arguments:
           to: ref('hub_loan')
           field: LOAN_HK
+        config:
+          where: LOAN_HK <> '0000000000000000000000000000000000000000000000000000000000000000'
   - name: DELINQUENCY_HASHDIFF
     data_tests:
     - not_null
@@ -198,6 +214,8 @@ models:
     data_tests:
     - not_null
 - name: sat_loan_termination
+  description: Có một ghost record (zero key, load_date 1900-01-01, record_source
+    SYSTEM) cho PIT (R-33)
   data_tests:
   - dbt_utils.unique_combination_of_columns:
       arguments:
@@ -212,9 +230,75 @@ models:
         arguments:
           to: ref('hub_loan')
           field: LOAN_HK
+        config:
+          where: LOAN_HK <> '0000000000000000000000000000000000000000000000000000000000000000'
   - name: TERMINATION_HASHDIFF
     data_tests:
     - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: xts_loan
+  description: Record tracking satellite (R-33)
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - SATELLITE_NAME
+        - HASHDIFF
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: SATELLITE_NAME
+    data_tests:
+    - not_null
+  - name: HASHDIFF
+    data_tests:
+    - not_null
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+- name: xts_loan_servicer
+  description: Record tracking satellite (R-33)
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - SATELLITE_NAME
+        - HASHDIFF
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: SATELLITE_NAME
+    data_tests:
+    - not_null
+  - name: HASHDIFF
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('link_loan_servicer')
+          field: LOAN_SERVICER_HK
   - name: load_date
     data_tests:
     - not_null

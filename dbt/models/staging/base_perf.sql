@@ -41,4 +41,3 @@ SELECT
     source_file,
     period
 FROM {{ source('quality', 'perf_clean') }}
-{% if var('period') %}WHERE period = '{{ var('period') }}'{% endif %}

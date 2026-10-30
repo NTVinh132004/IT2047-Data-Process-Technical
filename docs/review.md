@@ -160,3 +160,57 @@ Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby n
 Kèm theo: giới hạn lịch sử truy vấn của Spark UI (`spark.sql.ui.retainedExecutions` và các cấu hình liên quan trong `docker/spark/conf/spark-defaults.conf`). Đây là biện pháp phòng ngừa cho Thrift Server chạy lâu, không phải nguyên nhân của lần tràn heap trên; chẩn đoán ban đầu "do tích dồn lịch sử" là chưa đúng.
 
 Kế hoạch mục 3 ghi "Staging là view dbt, không lưu bền": nay staging của Raw Vault là bảng tạm, ghi đè mỗi lần chạy, vẫn không giữ lịch sử.
+
+## 11. Giai đoạn 3: Business Vault, PIT và đợt sửa dữ liệu (30/10/2026)
+
+**R-31.** Các quyết định khi cài Business Vault (FR-12), PIT (FR-13) và đợt sửa dữ liệu (FR-14). Không đổi FR hay AC; điểm 1 đổi cách cài đặt ghi ở Kế hoạch mục 6 ("macro `pit` của automate-dv").
+
+| # | Quyết định | Lý do |
+| --- | --- | --- |
+| 1 | `pit_loan_monthly` viết bằng SQL, không dùng macro `pit` của automate-dv. Mốc là các tháng khoản vay có dòng perf, cộng `load_date` của orig; nạp tăng dần theo kỳ; với phiên bản trước kỳ chỉ lấy phiên bản cuối cùng của mỗi khoản vay | Macro dựng tích chéo mọi khoản vay × mọi mốc và dựng lại mỗi lần chạy: bộ đầy đủ 1,78 triệu × 87 mốc = 155 triệu dòng. Cách tự viết tăng tuyến tính theo dữ liệu |
+| 2 | Thứ tự: Raw Vault → PIT → `bsat_loan_risk` → `bsat_loan_lifecycle`. PIT chỉ trỏ tới 5 Satellite của Raw Vault; hai Satellite tính toán có cùng hạt với PIT (khoản vay × tháng có perf) nên Gold join theo (`LOAN_HK`, `load_date`) | Tránh vòng phụ thuộc: Business Vault cần trạng thái theo tháng lấy qua PIT |
+| 3 | `months_delinquent_consecutive`, `ever_d90`, `default_load_date` nối qua ranh giới kỳ bằng "hạt giống" là dòng cuối trước kỳ trong chính bảng; chuỗi quá hạn đánh mã bằng tổng tích lũy số tháng không quá hạn | Mỗi kỳ chỉ xử lý các tháng của kỳ thay vì quét lại toàn bộ lịch sử. Hệ quả: nạp các kỳ theo thứ tự thời gian (như luật mồ côi, R-29) |
+| 4 | `bsat_loan_lifecycle` tách `MATURED` (ZBC 01 từ ngày đáo hạn) khỏi `PREPAID` (ZBC 01 trước ngày đáo hạn) | Từ điển định nghĩa trả trước hạn là `zero_balance_date` trước `maturity_date`; vintage 2019 trên bộ mẫu chưa có khoản nào `MATURED` |
+| 5 | FR-12 nghiệm thu bằng cách tính độc lập bằng Python thuần trên file TXT (`tests/gates/c3/oracle.py`), so mọi tháng của 20 khoản vay chọn theo seed, 4 khoản mỗi nhóm (vỡ nợ, từng 90+, hoãn trả COVID, trả trước hạn, luôn đúng hạn). Kế hoạch ghi "tính tay"; cách này chặt hơn (mọi tháng thay vì vài điểm) và giá trị kỳ vọng không lưu trong repo vì chứa mã khoản vay thật | Hai cách tính không dùng chung code. Thử trước trên 2019Q1–Q2: 58.267 dòng, 0 lệch, kể cả các tháng ở ranh giới kỳ |
+| 6 | Đợt sửa CORR1 khai báo trong `conf/pipeline.yml` (20 khoản vay theo seed, `credit_score` +20, `orig_dti` −5, `load_date` 2026-05-01, `record_source` riêng), sinh từ Bronze lúc chạy và nạp như một kỳ (`make correction`). Chỉ chọn khoản vay có giá trị sau sửa còn trong miền | Không lưu dữ liệu thật trong repo; chạy lại cho cùng kết quả; giá trị cũ và mới chắc chắn khác nhau |
+| 7 | `baseline.baseline_dim_loan_overwrite`: model dbt `merge` theo `LOAN_HK` (SCD1) từ `stg_orig`, chỉ để đối chứng | Cùng đợt sửa nạp vào hai nơi; AC-09 so hai bên |
+| 8 | `load_control.layers` ghi các tầng DAG đã đi qua khi SUCCESS; kỳ chỉ coi là đã nạp xong khi lần chạy qua đủ các tầng hiện có (`PIPELINE_LAYERS`) | Thay cho điều kiện `rows_clean IS NOT NULL` ở R-29; thêm tầng Gold ở C4 thì `make run-all` tự chạy lại mọi kỳ |
+| 9 | View `base_*` không lọc theo kỳ; bộ lọc `var('period')` nằm ở bảng `stg_*` | Trong view, bộ lọc bị đóng băng lúc tạo view; một lần chạy dbt chọn lọc không dựng lại view đã đọc nhầm kỳ 2019Q3 mà không báo lỗi (phát hiện khi thử Business Vault ngày 30/10). Không dùng `ephemeral` được vì `automate_dv.stage` cần đọc danh sách cột của nguồn |
+
+**R-32. Mỗi tầng của mỗi kỳ là một đơn vị chạy độc lập.**
+
+| Vấn đề | Quyết định |
+| --- | --- |
+| Khi thêm tầng Business Vault, `make run-all` chạy lại cả 29 kỳ từ landing: mỗi kỳ khoảng 3,8 phút, trong đó Bronze, cổng chất lượng và Raw Vault (khoảng 3 phút) cho kết quả y hệt, chỉ Business Vault (36 giây) là việc mới. Idempotent chỉ bảo đảm chạy lại thì an toàn, không phải lý do để chạy lại | DAG nhận conf `layers`; tầng không được chọn bị skip (task Python ném `AirflowSkipException`, task dbt thoát mã 99). `trigger_rule = none_failed` để task sau vẫn chạy khi tầng trước bị skip nhưng không chạy khi tầng trước lỗi (FR-22 giữ nguyên) |
+| Phải biết mỗi kỳ đã có tầng nào | `load_control.layers` ghi các tầng lượt chạy đã thực sự chạy; một kỳ có tầng nào là hợp các lượt SUCCESS. `make run-all` chạy từ tầng đầu tiên còn thiếu đến hết (các tầng sau phụ thuộc dữ liệu vào nó). `make run PERIOD=...` vẫn chạy đủ mọi tầng, để kiểm idempotent (AC-02) có ý nghĩa |
+| Lượt chạy trước khi có cột `layers` | Suy ra một lần từ dấu vết sẵn có: có `rows_clean` là DAG giai đoạn 2 (đến Raw Vault), không có là DAG giai đoạn 1 (đến Bronze) |
+| Business Vault lấy lưới khoản vay × tháng từ bảng `stg_*` do task `raw_vault` dựng; khi chỉ chạy Business Vault, `stg_*` còn là của lượt trước | Task `business_vault` dựng lại `stg_orig`, `stg_perf` cho kỳ của nó (khoảng 5–8 giây) |
+
+Kết quả: bù tầng Business Vault cho một kỳ mất khoảng 1,5 phút thay vì 3,8 phút. Tính đúng của các tầng cũ do cổng của chúng bảo đảm; `make test` chạy lại các cổng đã qua để bắt hồi quy.
+
+## 12. Vòng 5: đối chiếu chuẩn Data Vault 2.0 và triển khai lại (30/10/2026)
+
+**R-33.** Đối chiếu kiến trúc với chuẩn Data Vault 2.0 (`docs/danh-gia-kien-truc-dv2.md`, có trích dẫn nguồn) phát hiện hai chỗ lệch nghiêm trọng và bốn chỗ lệch mức trung bình. Chủ repo quyết định triển khai lại từ trạng thái sạch theo kiến trúc đúng chuẩn và ghi lại bài học kinh nghiệm. PRD lên 1.6.
+
+| # | Lệch chuẩn | Quyết định |
+| --- | --- | --- |
+| 1 | PIT và Business Vault đọc bảng staging `stg_*` (bảng tạm, ghi đè mỗi lần chạy) để biết khoản vay nào có báo cáo tháng nào. Chuẩn: Business Vault dựng từ Raw Vault | Thêm record tracking satellite `xts_loan` (macro `xts` của automate-dv) ghi mỗi lần khoản vay và cặp khoản vay–servicer xuất hiện trong một lần nạp. PIT và Business Vault chỉ đọc Raw Vault |
+| 2 | Cổng chất lượng chặn cả soft rule (ngoài miền, mồ côi) trước Raw Vault. Chuẩn: trước Raw Vault chỉ áp hard rule; soft rule ở downstream | Hard rule (sai số trường, sai khóa, sai kiểu, trùng khóa khác giá trị) vào error mart; bản sao giống hệt được khử trùng lặp; soft rule không chặn, ghi vào báo cáo vi phạm `quality.<x>_soft_violation`. Luật mồ côi không còn chặn nên cổng chất lượng không còn phụ thuộc thứ tự thời gian |
+| 3 | `load_date` mang nghĩa ngày nghiệp vụ; chạy lại kỳ cũ làm `load_date` lùi | Giữ `load_date` là thời điểm đến giả lập của lần giao tháng (phát lại lịch sử theo thứ tự thời gian). Satellite perf thêm `reporting_period` làm applied date (không tính vào `hash_diff`). Bộ lọc `apply_source_filter` giữ như điều kiện kỹ thuật (delta check) |
+| 4 | Lọc nghiệp vụ khi nạp `sat_loan_termination` | Bỏ; `hash_diff` tự loại các tháng không đổi |
+| 5 | PIT không có snapshot table, con trỏ null | Snapshot table `as_of_dates` (mỗi tháng một mốc, lấy từ `xts_loan`); ghost record ở mọi Satellite; PIT có cặp con trỏ (hash key, `load_date`) cho mỗi Satellite, trỏ tới ghost record khi chưa có phiên bản. Giữ cách nạp tăng dần của R-31 |
+| 6 | Link khoản vay–servicer không có thông tin hiệu lực theo tháng | `xts_loan` ghi cặp khoản vay–servicer có mặt ở mỗi lần nạp, đủ để Gold biết servicer của tháng m mà không cần khôi phục FR-11 |
+| 7 | Điều phối một DAG chạy cả luồng (R-32) | Mỗi tầng một DAG chạy định kỳ, chọn việc từ bảng điều khiển `control.layer_run` (khóa dòng, hạn thuê cho dòng RUNNING, giới hạn số lần thử, pool một job Spark và một lệnh dbt) |
+
+*Phạm vi triển khai lại:* xóa toàn bộ dữ liệu và metadata (`docker compose down -v`, `data/lake`), nạp lại từ landing. Viết lại cổng chất lượng, Raw Vault, PIT, Business Vault và điều phối; giữ cấu hình, landing, Bronze và staging (được đánh giá đúng chuẩn). Chạy lại cổng C1–C3 trên môi trường sạch.
+
+### Bài học kinh nghiệm
+
+Ghi lại để đưa vào báo cáo (chương Hạn chế và hướng phát triển) và để không lặp lại ở các giai đoạn sau.
+
+1. **Đối chiếu chuẩn trước khi cài đặt, không phải sau.** Thiết kế ở giai đoạn 0 dựa trên hiểu biết chung về Data Vault mà không tra tài liệu gốc. Hai lỗi nghiêm trọng (Business Vault đọc staging, soft rule chặn Raw Vault) đều là những điểm mà tài liệu chuẩn nói rõ. Chi phí: viết lại ba tầng và chạy lại ba cổng.
+2. **Spike phải kiểm cả nguyên tắc kiến trúc, không chỉ kiểm công cụ.** Spike C0 trả lời "automate-dv có chạy trên Spark không" nhưng không hỏi "luồng dữ liệu giữa các tầng có đúng chuẩn không".
+3. **Một chỗ lấp tạm thường che một chỗ thiếu trong mô hình.** Business Vault đọc staging vì Raw Vault thiếu thông tin "khoản vay có mặt trong lần nạp nào". Cách đúng là bổ sung mô hình (record tracking satellite), không đi đường tắt qua tầng khác.
+4. **Trạng thái dùng chung giữa các tầng là nguồn lỗi lặng lẽ.** Ba lỗi trong giai đoạn 2–3 (view đóng băng bộ lọc kỳ, `stg_*` của kỳ trước, staging bị ghi đè khi chạy song song) đều không báo lỗi mà cho dữ liệu sai. Mỗi tầng chỉ nên đọc dữ liệu bền vững của tầng dưới.
+5. **Idempotent là điều kiện an toàn, không phải lý do để chạy lại.** Chạy lại cả luồng khi chỉ thêm một tầng tốn gần 2 giờ (R-32). Tầng đã xong thì giữ nguyên; tính đúng của nó do cổng của nó bảo đảm.
+6. **Thử nhỏ trước khi chạy dài.** Các lần bắt lỗi rẻ nhất đều đến từ thử một hai kỳ trước khi chạy cả 29 kỳ (oracle so 58.267 dòng, `EXPLAIN` 63 giây, smoke trên fixture).

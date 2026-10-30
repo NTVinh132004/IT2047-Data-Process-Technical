@@ -3,6 +3,7 @@
 Bronze và bảng clean giữ giá trị nguồn dạng chuỗi. Model base ép kiểu theo `type` và đổi mã thiếu (`missing`) cùng
 chuỗi rỗng thành null, đúng quy tắc ở docs/tu-dien-du-lieu.md mục 5. Sinh từ conf thay vì viết tay để đổi tên hay
 thêm cột chỉ cần sửa conf/schema; tests/unit/test_dbt_staging.py kiểm file sinh ra luôn khớp conf.
+View không lọc theo kỳ: bộ lọc var('period') nằm ở bảng stg_*, vì trong view nó bị đóng băng lúc tạo view (R-31).
 
 Chạy: uv run python -m scripts.gen_dbt_staging
 """
@@ -31,7 +32,6 @@ def render(schema: SourceSchema) -> str:
         f"-- Ép kiểu và đổi mã thiếu thành null; giá trị đã qua cổng chất lượng nên ép kiểu không lỗi.\n"
         f"SELECT\n    {select}\n"
         f"FROM {{{{ source('quality', '{schema.kind}_clean') }}}}\n"
-        f"{{% if var('period') %}}WHERE period = '{{{{ var('period') }}}}'{{% endif %}}\n"
     )
 
 

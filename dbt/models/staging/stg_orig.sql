@@ -1,6 +1,9 @@
 {#- Hash key, hash_diff cho Hub, Link và Satellite nguồn orig (từ điển dữ liệu mục 3) -#}
 {%- set yaml_metadata -%}
 source_model: base_orig
+derived_columns:
+  # Nguồn của lần xuất hiện, ghi vào record tracking satellite xts_loan (R-33)
+  TRACK_SOURCE: "!orig"
 hashed_columns:
   LOAN_HK: loan_id
   SELLER_HK: seller_name
@@ -16,6 +19,11 @@ hashed_columns:
               property_valuation_method]
 {%- endset -%}
 {% set metadata = fromyaml(yaml_metadata) %}
+{#- Lọc kỳ ở đây (bảng dựng lại mỗi lần chạy), không ở view base_*: bộ lọc trong view bị đóng băng lúc tạo view và
+    một lần chạy dbt chọn lọc sẽ đọc nhầm kỳ cũ mà không báo lỗi (R-31). Spark đẩy điều kiện xuống bảng nguồn. -#}
+SELECT * FROM (
 {{ automate_dv.stage(include_source_columns=true, source_model=metadata['source_model'],
-                     hashed_columns=metadata['hashed_columns'], derived_columns=none,
+                     hashed_columns=metadata['hashed_columns'], derived_columns=metadata['derived_columns'],
                      null_columns=none, ranked_columns=none) }}
+) AS staged
+{% if var('period') %}WHERE period = '{{ var('period') }}'{% endif %}

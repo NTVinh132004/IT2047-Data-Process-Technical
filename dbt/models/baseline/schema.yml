@@ -1,0 +1,13 @@
+version: 2
+models:
+- name: baseline_dim_loan_overwrite
+  description: Star schema ghi đè, chỉ để đối chứng (FR-14, AC-09)
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - unique
+    - not_null
+  - name: loan_id
+    data_tests:
+    - unique
+    - not_null

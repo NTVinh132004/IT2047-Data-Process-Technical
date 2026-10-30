@@ -1,6 +1,6 @@
 # PRD và kế hoạch: Lakehouse + Data Vault 2.0 trên Spark (Freddie Mac)
 
-Oct 8, 2026 · @Vĩnh · Phiên bản 1.5 (29/10/2026), xem lịch sử ở mục 8
+Oct 8, 2026 · @Vĩnh · Phiên bản 1.6 (30/10/2026), xem lịch sử ở mục 8
 
 Sản phẩm là một pipeline chạy bằng một lệnh, biến dữ liệu khoản vay Freddie Mac vintage 2019 thành kho Data Vault giữ đủ lịch sử và các bảng Gold trả lời 5 câu hỏi rủi ro tín dụng. MVP trên bộ mẫu đạt cuối tuần 5, nộp cuối tuần 8. Bộ tài liệu gồm ba file: PRD (file này), Kế hoạch triển khai và `Review.md`. Vòng review ngày 27/10/2026 sửa lỗi thiết kế khóa Satellite, các chỗ PRD và kế hoạch lệch nhau, và các tiêu chí nghiệm thu chưa kiểm được; chi tiết trong `Review.md`.
 
@@ -54,19 +54,19 @@ Năm mục tiêu, mỗi mục tiêu có một chỉ số kiểm được bằng 
 
 | ID | Yêu cầu | Ưu tiên | Nghiệm thu |
 | --- | --- | --- | --- |
-| FR-01 | `make run PERIOD=2020Q1` kích hoạt DAG Airflow nạp một kỳ, kể cả kỳ đã SUCCESS (dùng để chạy lại); `make run-all` nạp tuần tự mọi kỳ chưa thành công | Must | Thứ tự đúng; `run-all` bỏ qua kỳ đã SUCCESS |
-| FR-02 | Bảng `load_control`: kỳ, trạng thái, số dòng vào, sạch, lỗi, thời gian chạy | Must | Mỗi lần chạy ghi một dòng; kỳ FAILED chạy lại được |
+| FR-01 | `make run PERIOD=2020Q1` yêu cầu xử lý lại một kỳ qua mọi tầng (kể cả kỳ đã xong) và chờ đến khi xong; `make run-all` đăng ký mọi kỳ của bộ dữ liệu và chờ các job theo tầng xử lý hết | Must | Các tầng xử lý các kỳ theo đúng thứ tự thời gian; tầng đã xong của một kỳ không bị xử lý lại |
+| FR-02 | Bảng điều khiển `control.layer_run`: kỳ, tầng, trạng thái, số dòng vào, sạch, lỗi, thời gian chạy; view `control.load_control` tổng hợp mỗi kỳ một dòng | Must | Mỗi lần một tầng xử lý một kỳ ghi một dòng; tầng FAILED được xử lý lại; tầng kẹt RUNNING quá hạn được nhặt lại |
 | FR-03 | Schema, ánh xạ tên cột và luật kiểm tra đọc từ `conf/` | Must | Đổi tên một cột chỉ sửa `conf/`, không sửa code |
 | FR-04 | Bronze nạp file thô không tiêu đề (phân tách bằng dấu gạch đứng), gắn `load_date`, `record_source`, `source_file`. Mỗi kỳ nhận lát perf của các tháng trong quý và lát orig của các khoản vay có tháng perf đầu tiên trong quý; lát của kỳ được ghi đè (Delta `replaceWhere` theo kỳ), không cộng dồn | Must | Số dòng Bronze bằng số dòng nguồn của lát kỳ; chạy lại kỳ không đổi số dòng |
 | FR-05 | Chuẩn hóa tên cột theo Release 47 | Must | Một bảng ánh xạ tên cũ sang mới trong `conf/` |
 | FR-06 | Model staging trong dbt (macro stage của automate-dv) tính hash key và `hash_diff`: trim, upper, null thay bằng `^^`, nối bằng `\|\|`, sha2-256, lưu dạng chuỗi hex in hoa 64 ký tự; dấu phân cách và ký hiệu null khai báo một lần trong `dbt_project.yml`, không đổi sau khi đã nạp | Must | Unit test: cùng đầu vào cùng hash; đổi một cột thì `hash_diff` đổi; `('A', null)` và `(null, 'A')` cho hash khác nhau |
-| FR-07 | Cổng chất lượng (job PySpark, chạy trước dbt) chặn dòng mồ côi (perf không có orig), trùng khóa (loan × tháng báo cáo), sai kiểu, ngoài miền giá trị; dòng lỗi vào quarantine kèm lý do, lát quarantine của kỳ được ghi đè khi chạy lại | Must | Không dòng lỗi nào vào Raw Vault |
+| FR-07 | Cổng chất lượng (job PySpark, chạy trước dbt) tách luật theo chuẩn DV2: hard rule (sai số trường, sai khóa, sai kiểu, trùng khóa có giá trị khác nhau) chặn dòng vào error mart (quarantine) kèm lý do; bản sao giống hệt được khử trùng lặp; soft rule (ngoài miền giá trị, perf không có orig) không chặn, được ghi vào báo cáo vi phạm. Lát của kỳ được ghi đè khi chạy lại | Must | Không dòng vi phạm hard rule nào vào Raw Vault; dòng vi phạm soft rule có trong Raw Vault và trong báo cáo vi phạm |
 | FR-08 | `hub_loan`, `hub_seller` (từ orig), `hub_servicer` (từ perf, vì Release 47 chuyển tên servicer sang perf): model dbt incremental dùng macro `hub` của automate-dv | Must | Mỗi khóa nghiệp vụ đúng một dòng |
 | FR-09 | `link_loan_seller` (từ orig), `link_loan_servicer` (từ perf, mọi cặp khoản vay × servicer đã từng xuất hiện): model dbt dùng macro `link` | Must | Mỗi cặp khóa đúng một dòng |
-| FR-10 | 5 Satellite trên `hub_loan`, tách theo tốc độ thay đổi: `sat_loan_origination`, `sat_loan_property` (từ orig), `sat_loan_balance`, `sat_loan_delinquency`, `sat_loan_termination` (từ perf). Khóa là (`hash_key`, `load_date`); macro `sat` chỉ thêm phiên bản khi `hash_diff` khác phiên bản gần nhất trước đó; dòng stage có `load_date` không mới hơn phiên bản mới nhất của khóa bị bỏ qua (`apply_source_filter`, R-26), nên dòng có (`hash_key`, `load_date`) đã tồn tại không bao giờ được chèn lại | Must | Chạy lại một kỳ bất kỳ, kể cả kỳ cũ sau khi đã nạp kỳ mới hơn, sinh 0 dòng mới |
+| FR-10 | 5 Satellite trên `hub_loan`, tách theo tốc độ thay đổi: `sat_loan_origination`, `sat_loan_property` (từ orig), `sat_loan_balance`, `sat_loan_delinquency`, `sat_loan_termination` (từ perf). Khóa là (`hash_key`, `load_date`); macro `sat` chỉ thêm phiên bản khi `hash_diff` khác phiên bản gần nhất trước đó; dòng stage có `load_date` không mới hơn phiên bản mới nhất của khóa bị bỏ qua (`apply_source_filter`, R-26), nên dòng có (`hash_key`, `load_date`) đã tồn tại không bao giờ được chèn lại. Satellite perf mang `reporting_period` làm ngày nghiệp vụ (applied date), không tính vào `hash_diff`. Nạp Raw Vault chỉ có điều kiện kỹ thuật, không lọc nghiệp vụ. Record tracking satellite `xts_loan` (macro `xts`) ghi mỗi lần khoản vay và cặp khoản vay–servicer xuất hiện trong một lần nạp (R-33) | Must | Chạy lại một kỳ bất kỳ, kể cả kỳ cũ sau khi đã nạp kỳ mới hơn, sinh 0 dòng mới |
 | FR-11 | `esat_loan_servicer` theo dõi servicer hiệu lực tại từng `load_date` (perf có tên servicer theo tháng từ Release 47; 37,5% khoản vay bộ mẫu đổi servicer) | Đã cắt (R-25) | Servicer qua esat tại tháng m khớp `servicer_name` của dòng perf tháng m. Nếu cắt, Gold dùng servicer đầu tiên trong Link và ghi hạn chế |
 | FR-12 | `bsat_loan_risk`, `bsat_loan_lifecycle`: model dbt SQL viết theo quy tắc nghiệp vụ | Must | Số tháng quá hạn liên tiếp, cờ từng quá hạn 90+, trạng thái vòng đời khớp tính tay trên 20 khoản vay |
-| FR-13 | `pit_loan_monthly`: macro `pit` của automate-dv; bảng mốc thời gian (as-of dates) là các `load_date` theo tháng, nên trạng thái của tháng báo cáo m là dòng PIT tại `load_date` của tháng m | Must | Trạng thái tại một tháng bất kỳ lấy được bằng một join |
+| FR-13 | `pit_loan_monthly` theo cấu trúc PIT chuẩn: dựng chỉ từ Raw Vault, mốc lấy từ snapshot table `as_of_dates` (mỗi tháng báo cáo một mốc), mỗi Satellite một cặp con trỏ (hash key, `load_date`), trỏ tới ghost record khi chưa có phiên bản; nạp tăng dần theo kỳ (R-31, R-33). Trạng thái của tháng báo cáo m là dòng PIT tại mốc của tháng m | Must | Trạng thái tại một tháng bất kỳ lấy được bằng equi-join |
 | FR-14 | Kịch bản sửa dữ liệu: một đợt sửa nạp sau kỳ cuối, mang vài giá trị khởi tạo đã sửa giả lập, với `load_date` mới và `record_source` riêng. Cùng đợt sửa được nạp vào một bảng đối chứng kiểu star schema ghi đè (`baseline_dim_loan_overwrite`). Đây là bằng chứng chính cho việc chọn Data Vault | Must | AC-09 |
 | FR-15 | Star schema dạng model dbt: `fact_loan_month` và 5 dim (`dim_loan`, `dim_seller`, `dim_servicer`, `dim_date`, `dim_geography`) | Must | Hạt fact là khoản vay × tháng báo cáo |
 | FR-16 | 3 mart: `mart_delinquency` (tháng × bang × bên bán × nhóm điểm tín dụng, LTV, DTI), `mart_prepayment`, `mart_covid_forbearance` | Must | Trả lời được 5 câu hỏi ở mục 3 (câu 1–3 từ `mart_delinquency`) |
@@ -74,7 +74,7 @@ Năm mục tiêu, mỗi mục tiêu có một chỉ số kiểm được bằng 
 | FR-18 | Dashboard Metabase 4–6 biểu đồ | Đã cắt (R-25) | Thay bằng notebook (AC-08) |
 | FR-19 | Thực nghiệm 1, 2, 4, 6: quy mô, MERGE tăng dần, PIT, tách Satellite | Must | Kết quả thô CSV, biểu đồ, giải thích |
 | FR-20 | Thực nghiệm 3, 5: partition theo kỳ, broadcast join | Đã cắt (R-25) | Hướng phát triển |
-| FR-21 | DAG Airflow theo kỳ: nạp Bronze, cổng chất lượng, dbt build Raw Vault, Business Vault, Gold, xuất PostgreSQL; retry 2 lần, chỉ một lượt chạy cùng lúc, ghi trạng thái vào load\_control | Must | Giao diện Airflow hiện đủ task; kỳ lỗi chạy lại từ task lỗi mà không trùng dữ liệu |
+| FR-21 | Mỗi tầng một DAG Airflow chạy định kỳ (ingest, quality, raw_vault, business_vault, sau đó gold, export), đọc bảng điều khiển để chọn kỳ đủ điều kiện (tầng trên của kỳ đã xong và tầng mình của kỳ trước đã xong), giữ khóa trên dòng đang xử lý, retry có giới hạn, ghi trạng thái vào `control.layer_run` | Must | Giao diện Airflow hiện đủ DAG theo tầng; tầng lỗi của một kỳ được xử lý lại mà không trùng dữ liệu và không chặn việc theo dõi các tầng khác |
 | FR-22 | dbt test (unique, not\_null, relationships) trên Hub, Link, Satellite, fact, dim chạy sau mỗi tầng; test lỗi thì DAG dừng trước tầng sau | Must | dbt test đạt 100% trên bộ mẫu; một test cố ý sai làm DAG dừng |
 
 Nội dung từng thực nghiệm nằm ở mục 8 của tài liệu kiến trúc.
@@ -110,10 +110,10 @@ MVP được nghiệm thu bằng 9 kiểm tra định lượng trên bộ mẫu 
 
 - [ ] AC-01: Số dòng Bronze bằng số dòng nguồn của lát kỳ ở mọi kỳ
 - [ ] AC-02: Chạy lại một kỳ bất kỳ (kỳ gần nhất và một kỳ cũ hơn) sinh 0 dòng mới ở Hub, Link, Satellite
-- [ ] AC-03: Sau kỳ cuối, số dòng `hub_loan` bằng số mã khoản vay khác nhau trong orig có ít nhất một dòng perf, trừ số bị quarantine
+- [ ] AC-03: Sau kỳ cuối, số dòng `hub_loan` bằng số mã khoản vay khác nhau có ít nhất một dòng không vi phạm hard rule (orig hoặc perf)
 - [ ] AC-04: Với 100 khoản vay ngẫu nhiên, trạng thái lấy qua PIT tại tháng m khớp dòng perf tháng m ở Bronze
 - [ ] AC-05: Tổng dư nợ theo tháng ở Gold khớp tổng tính trực tiếp từ Bronze, sai lệch bằng 0
-- [ ] AC-06: Theo từng kỳ, số dòng sạch cộng số dòng quarantine bằng số dòng Bronze
+- [ ] AC-06: Theo từng kỳ, số dòng sạch cộng số dòng quarantine (vi phạm hard rule) cộng số bản sao bị khử trùng lặp bằng số dòng Bronze
 - [ ] AC-07: Toàn bộ bộ mẫu chạy bằng một lệnh; chạy lại được theo README từ một bản clone sạch, sau `docker compose down -v`
 - [ ] AC-08: Dashboard hoặc notebook thay thế trả lời đủ 5 câu hỏi nghiệp vụ
 - [ ] AC-09: Sau đợt sửa (FR-14), Satellite khởi tạo có phiên bản mới cho đúng các khoản vay bị sửa và phiên bản cũ còn nguyên; PIT trước và sau `load_date` của đợt sửa trả về giá trị cũ và giá trị mới; bảng đối chứng ghi đè chỉ còn giá trị mới
@@ -164,3 +164,4 @@ PRD là tài liệu sống: được sửa khi spike, cổng kiểm thử hoặc
 | 1.5 | 29/10/2026 | Bổ sung (thay đổi nhỏ): dung lượng bộ đầy đủ 2019; cả 3 điều kiện chốt có câu trả lời, cổng C0 đạt | Kế hoạch mục 6, 12; `tests/gates/results/c0-20261029-095352.json` |
 | 1.5 | 30/10/2026 | Bổ sung (thay đổi nhỏ): cổng C1 đạt; baseline Bronze bộ mẫu 788,6 giây cho 29 kỳ. Mục tiêu 45 phút end-to-end giữ nguyên, đánh giá lại ở C4 khi có đủ các tầng | `Review.md` R-27, R-28; `tests/gates/results/c1-*.json` |
 | 1.5 | 30/10/2026 | Bổ sung (thay đổi nhỏ): cổng C2 đạt (AC-02, AC-03, AC-06, FR-06, FR-07, FR-22). FR-10: staging lưu thành bảng ghi đè mỗi lần chạy thay vì view, không đổi tiêu chí | `Review.md` R-29, R-30; `tests/gates/results/c2-*.json` |
+| 1.6 | 30/10/2026 | Đối chiếu chuẩn Data Vault 2.0: FR-07 tách hard rule/soft rule; FR-10 thêm record tracking satellite và applied date, bỏ lọc nghiệp vụ khi nạp; FR-13 PIT theo cấu trúc chuẩn (snapshot table, ghost record, chỉ đọc Raw Vault); FR-01, FR-02, FR-21 điều phối mỗi tầng một job đọc bảng điều khiển; AC-03, AC-06 sửa theo FR-07. Triển khai lại từ trạng thái sạch, chạy lại cổng C1–C3 | `Review.md` R-33; `docs/danh-gia-kien-truc-dv2.md` |

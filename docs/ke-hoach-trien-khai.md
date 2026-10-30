@@ -72,7 +72,7 @@ Data Vault nằm ở lớp Silver của Medallion: Bronze giữ dữ liệu thô
 
 Gold có thể xóa và dựng lại bất cứ lúc nào từ Silver; ngược lại, Raw Vault chỉ được thêm mới, không bao giờ sửa hay xóa.
 
-**Mặt phẳng điều khiển** quyết định nạp kỳ nào và ghi lại kết quả: `DAG Airflow` đọc `load_control` để lấy kỳ tiếp theo, schema và luật kiểm tra nằm trong cấu hình, dòng lỗi bị chặn ở cổng chất lượng và đưa vào quarantine. Chạy lại cùng một kỳ cho kết quả không đổi: Bronze và quarantine ghi đè lát của kỳ, Raw Vault bỏ qua dòng đã có, Business Vault và Gold dựng lại từ Raw Vault. Thứ tự task trong DAG: nạp Bronze (PySpark), cổng chất lượng (PySpark), dbt build từng tầng kèm dbt test, xuất mart sang PostgreSQL.
+**Mặt phẳng điều khiển** quyết định tầng nào xử lý kỳ nào và ghi lại kết quả (R-33): mỗi tầng một DAG Airflow chạy định kỳ, đọc bảng `control.layer_run` để chọn các kỳ đủ điều kiện (tầng trên của kỳ đã xong, tầng mình của kỳ trước đã xong), giữ khóa trên dòng đang xử lý rồi ghi trạng thái. Schema và luật kiểm tra nằm trong cấu hình. Cổng chất lượng tách luật theo chuẩn DV2: dòng vi phạm hard rule vào error mart (quarantine), dòng vi phạm soft rule vẫn vào Raw Vault và được ghi vào báo cáo vi phạm. Chạy lại cùng một kỳ cho kết quả không đổi: Bronze và quarantine ghi đè lát của kỳ, Raw Vault bỏ qua dòng đã có, Business Vault dựng từ Raw Vault. Business Vault và Gold chỉ đọc Raw Vault, không đọc staging.
 
 **Cố ý không dùng:** không tách Business Vault thành một lớp lưu trữ riêng; Raw Vault và Business Vault cùng nằm trong Silver. Staging không lưu lịch sử: view ép kiểu, cộng bảng stage ghi đè mỗi lần chạy (R-30). Kiến trúc này được chốt tạm thời và sẽ điều chỉnh nếu gặp vấn đề khi triển khai.
 
@@ -90,9 +90,12 @@ Mô hình xoay quanh `hub_loan`; các cột perf được tách thành nhiều S
 | `sat_loan_origination`, `sat_loan_property` | orig: điều kiện khoản vay, tài sản thế chấp | Gần như không đổi; đổi khi có đợt sửa dữ liệu (FR-14) |
 | `sat_loan_balance` | perf: dư nợ, lãi suất, tuổi khoản vay | Đổi hằng tháng |
 | `sat_loan_delinquency` | perf: tình trạng quá hạn, hoãn trả nợ, sửa đổi khoản vay | Chỉ đổi khi có sự kiện; nơi `hash_diff` thể hiện giá trị |
-| `sat_loan_termination` | perf: mã và ngày kết thúc, khoản thu hồi | Thường chỉ một phiên bản |
+| `sat_loan_termination` | perf: mã và ngày kết thúc, khoản thu hồi | Thường hai phiên bản: chưa kết thúc và kết thúc (R-33) |
+| `xts_loan` | Record tracking satellite (macro `xts`): mỗi lần khoản vay và cặp khoản vay–servicer xuất hiện trong một lần nạp | Cho biết khoản vay có báo cáo tháng nào và servicer của từng tháng; PIT, Business Vault, Gold dựa vào đây thay vì staging (R-33) |
+| `as_of_dates` | Snapshot table: mỗi tháng báo cáo một mốc | Mốc của PIT (R-33) |
+| `pit_loan_monthly` | PIT: mỗi khoản vay × mốc, cặp con trỏ (hash key, `load_date`) cho mỗi Satellite, trỏ ghost record khi chưa có phiên bản | Chỉ đọc Raw Vault; nạp tăng dần (R-31, R-33) |
 | `esat_loan_servicer` | Theo dõi đổi bên quản lý | Đã xác minh: 37,5% khoản vay bộ mẫu đổi servicer (R-21); đã cắt (R-25), ghi vào hướng phát triển |
-| Cột kỹ thuật mọi bảng | `hash_key`, `load_date`, `record_source`; Satellite thêm `hash_diff` | Pipeline tự sinh |
+| Cột kỹ thuật mọi bảng | `hash_key`, `load_date`, `record_source`; Satellite thêm `hash_diff`; Satellite perf thêm `reporting_period` làm applied date | Pipeline tự sinh; `load_date` là thời điểm đến giả lập của lần giao tháng, nạp theo thứ tự thời gian (R-33) |
 | Hai trục thời gian | `load_date` (khi nạp) và `reporting_period` (kỳ nghiệp vụ) | Không dùng lẫn hai cột này |
 
 **Khóa Satellite và `load_date`:** Satellite có khóa (`hash_key`, `load_date`). DAG chạy theo quý, nhưng mỗi tháng báo cáo trong quý mang một `load_date` riêng (ngày 1 của tháng sau). Nếu cả quý dùng chung một `load_date`, ba dòng perf của một khoản vay sẽ trùng khóa và Satellite chỉ giữ được một tháng (chi tiết ở PRD mục 6).
@@ -114,7 +117,7 @@ Toàn bộ chạy bằng Docker Compose trên máy cá nhân, không dùng cloud
 | Dashboard | Notebook (Metabase đã cắt, R-25) | Đọc mart trong PostgreSQL |
 | Quản lý mã nguồn | GitHub | Không đưa dữ liệu lên repo |
 | Mô hình hóa | dbt-core 1.12.5 + dbt-spark 1.11.0, automate-dv 0.11.5 | Staging, Raw Vault, Business Vault, Gold; dbt test, dbt docs. Cần lớp tương thích dbt-spark (R-26) |
-| Điều phối | Apache Airflow 3.3.2 (LocalExecutor) | DAG tuyến tính theo kỳ nạp, retry, theo dõi trạng thái; task Spark chạy trong container scheduler (R-27) |
+| Điều phối | Apache Airflow 3.3.2 (LocalExecutor) | Mỗi tầng một DAG chạy định kỳ, chọn việc từ bảng `control.layer_run`; pool giới hạn một job Spark và một lệnh dbt cùng lúc; task Spark chạy trong container scheduler (R-27, R-33) |
 | Catalog | Hive Metastore + Spark Thrift Server | dbt kết nối Spark qua Thrift; metadata lưu trên PostgreSQL |
 
 **Yêu cầu máy chạy chính:** RAM 16 GB; ổ cứng trống ít nhất 3–4 lần dung lượng dữ liệu thô của bộ đầy đủ.
@@ -216,9 +219,9 @@ Cổng chỉ đạt khi mọi kiểm thử trong cổng đạt. Kiểm thử t�
 | Cổng | Cuối giai đoạn | Kiểm thử phải đạt | Cách kiểm |
 | --- | --- | --- | --- |
 | C0 | 0 (tuần 1) | 3 điều kiện chốt ở mục 12 có câu trả lời. Từ điển dữ liệu phủ mọi cột dùng ở FR-10, FR-12, FR-16. Quá hạn, trả trước hạn, vỡ nợ, hoãn trả nợ được định nghĩa theo mã. Spike: `hub_loan` và `sat_loan_balance` nạp 2 tháng qua dbt-spark, số dòng Satellite bằng số dòng perf của 2 tháng (kiểm R-01); chạy lại tháng 1 sau tháng 2 sinh 0 dòng (kiểm R-08). Kết luận spike ghi vào lịch sử thay đổi của PRD | Nhóm review tài liệu; `make gate N=0` cho spike |
-| C1 | 1 (tuần 2) | `docker compose up`: mọi service healthy. AC-01 ở mọi kỳ của bộ mẫu. Chạy lại một kỳ: số dòng Bronze không đổi, `load_control` thêm đúng 1 dòng. Đổi tên một cột chỉ trong `conf/` thì pipeline vẫn đọc đúng (FR-03, FR-05). Có số đo thời gian baseline | `make gate N=1` |
-| C2 | 2 (tuần 3) | Unit test hash (FR-06). AC-06 ở mọi kỳ; không dòng quarantine nào vào Raw Vault. AC-03. AC-02 với kỳ gần nhất và một kỳ cũ. 100% dòng Raw Vault có `load_date`, `record_source`. dbt test Raw Vault đạt 100%; một test cố ý sai làm DAG dừng (FR-22) | `make gate N=2` |
-| C3 | 3 (tuần 4) | FR-12: 20 khoản vay khớp giá trị tính tay trong `tests/fixtures/`. AC-04 trên 100 khoản vay ngẫu nhiên (seed cố định). AC-09. dbt test Business Vault đạt 100% | `make gate N=3` |
+| C1 | 1 (tuần 2) | `docker compose up`: mọi service healthy. AC-01 ở mọi kỳ của bộ mẫu. Chạy lại một kỳ: số dòng Bronze không đổi, `control.layer_run` thêm đúng 1 dòng cho mỗi tầng được xử lý lại. Đổi tên một cột chỉ trong `conf/` thì pipeline vẫn đọc đúng (FR-03, FR-05). Có số đo thời gian baseline | `make gate N=1` |
+| C2 | 2 (tuần 3) | Unit test hash (FR-06). AC-06 ở mọi kỳ; không dòng vi phạm hard rule nào vào Raw Vault; dòng vi phạm soft rule có trong Raw Vault và trong báo cáo vi phạm (FR-07). AC-03. AC-02 với kỳ gần nhất và một kỳ cũ. 100% dòng Raw Vault có `load_date`, `record_source`. dbt test Raw Vault đạt 100%; một test cố ý sai làm DAG dừng (FR-22) | `make gate N=2` |
+| C3 | 3 (tuần 4) | FR-12: 20 khoản vay khớp cách tính độc lập bằng Python thuần trên file TXT (R-31). PIT và Business Vault chỉ đọc Raw Vault (R-33). AC-04 trên 100 khoản vay ngẫu nhiên (seed cố định). AC-09. dbt test Business Vault đạt 100% | `make gate N=3` |
 | C4 | 4 (tuần 5, MVP) | AC-05, AC-07, AC-08. Số dòng mart trong PostgreSQL bằng số dòng mart trên Delta (FR-17). Mọi test C1–C3 đạt khi chạy lại trên môi trường sạch (`docker compose down -v`). Thời gian end-to-end được ghi lại và so với mục tiêu tạm 45 phút; không đạt thì ghi điều chỉnh vào lịch sử thay đổi của PRD, không chặn cổng | `make test`; chạy lại theo README từ bản clone sạch |
 | C5 | 5 (tuần 6) | Trên bộ đầy đủ: AC-01, AC-02, AC-05, AC-06 đạt. 4 thực nghiệm bắt buộc, mỗi cấu hình 3 lần, có CSV thô, biểu đồ, ảnh Spark UI hoặc `explain()` | `make gate N=5` |
 | C6 | 6 (tuần 7, code freeze) | `make test` xanh trên commit freeze. Mỗi thực nghiệm có phần giải thích. Dashboard hoặc notebook trả lời đủ 5 câu hỏi. Chạy lại theo README từ bản clone sạch, sau `docker compose down -v` | `make test`; review nhóm |

@@ -13,6 +13,9 @@ vars:
   concat_string: "||"
   null_placeholder_string: "^^"
   hash_content_casing: UPPER
+  # Ghost record ở mọi Satellite (zero key, load_date 1900-01-01) để PIT trỏ tới thay vì null: mọi join là equi-join (R-33)
+  enable_ghost_records: true
+  system_record_value: SYSTEM
   # Kỳ nạp DAG truyền vào (--vars '{period: 2020Q1}'); để trống thì staging lấy mọi kỳ (dựng lại toàn bộ)
   period: ""
   # Bật một test cố ý sai để kiểm DAG dừng khi dbt test lỗi (FR-22, cổng C2)
@@ -31,14 +34,18 @@ models:
         +materialized: table
       stg_perf:
         +materialized: table
-      stg_perf_termination:
-        +materialized: table
     raw_vault:
       +schema: raw_vault
       +materialized: incremental
       # Chạy lại kỳ cũ không chèn lại dòng: chỉ nhận dòng mới hơn phiên bản mới nhất (R-08, R-26)
       +meta:
         apply_source_filter: true
+    business_vault:
+      +schema: business_vault
+      +materialized: incremental
+    baseline:
+      # Star schema ghi đè (SCD1), chỉ để đối chứng với Data Vault trong đợt sửa dữ liệu (FR-14, AC-09)
+      +schema: baseline
 
 seeds:
   mortgage_datavault:

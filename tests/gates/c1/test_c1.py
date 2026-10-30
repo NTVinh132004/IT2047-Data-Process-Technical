@@ -3,7 +3,7 @@
 - docker compose up: mọi service healthy
 - AC-01 ở mọi kỳ của bộ mẫu: số dòng Bronze bằng số dòng nguồn của lát kỳ (đếm độc lập bằng Python thuần)
 - load_date theo tháng đúng quy tắc periods.load_date_for (R-01)
-- Chạy lại một kỳ: số dòng Bronze không đổi, load_control thêm đúng 1 dòng
+- Chạy lại một kỳ: số dòng Bronze không đổi, control.layer_run thêm đúng 1 dòng cho mỗi tầng (R-33)
 - Đổi tên một cột chỉ trong conf/ thì pipeline vẫn đọc đúng (FR-03, FR-05)
 - Có số đo thời gian baseline
 
@@ -81,9 +81,9 @@ def analytics():
                            user=env["POSTGRES_USER"], password=env["POSTGRES_PASSWORD"])
 
 
-def load_control_rows(cfg: Config) -> list[dict]:
+def layer_runs(cfg: Config) -> list[dict]:
     with analytics() as conn, conn.cursor() as cur:
-        cur.execute("SELECT * FROM control.load_control WHERE dataset = %s ORDER BY run_id", (cfg.source,))
+        cur.execute("SELECT * FROM control.layer_run WHERE dataset = %s ORDER BY run_id", (cfg.source,))
         names = [d.name for d in cur.description]
         return [dict(zip(names, row)) for row in cur.fetchall()]
 
@@ -144,14 +144,15 @@ def test_load_date_by_month(loaded, cfg):
 
 def test_rerun_period_idempotent(loaded, cfg):
     before_rows = (rows_per_period(bronze_table(cfg, "perf")), rows_per_period(bronze_table(cfg, "orig")))
-    before_log = load_control_rows(cfg)
-    sh("make", "run", f"PERIOD={RERUN_PERIOD}", timeout=1800)
+    before_log = layer_runs(cfg)
+    sh("make", "run", f"PERIOD={RERUN_PERIOD}", timeout=3600)
     after_rows = (rows_per_period(bronze_table(cfg, "perf")), rows_per_period(bronze_table(cfg, "orig")))
-    after_log = load_control_rows(cfg)
-    RESULT["rerun"] = {"period": RERUN_PERIOD, "load_control_rows": [len(before_log), len(after_log)]}
+    new_runs = layer_runs(cfg)[len(before_log):]
+    RESULT["rerun"] = {"period": RERUN_PERIOD, "new_layer_runs": [(r["layer"], r["status"]) for r in new_runs]}
     assert after_rows == before_rows, "Chạy lại kỳ làm đổi số dòng Bronze"
-    assert len(after_log) == len(before_log) + 1
-    assert after_log[-1]["period"] == RERUN_PERIOD and after_log[-1]["status"] == "SUCCESS"
+    # Mỗi tầng đúng một lần chạy mới, đều SUCCESS (lần FAILED rồi thử lại cũng được ghi, nên chỉ đếm SUCCESS)
+    success = sorted(r["layer"] for r in new_runs if r["status"] == "SUCCESS" and r["period"] == RERUN_PERIOD)
+    assert success == sorted(["ingest", "quality", "raw_vault", "business_vault"]), new_runs
 
 
 def test_rename_column_in_conf_only(loaded, cfg):
@@ -198,10 +199,12 @@ def test_landing_one_file_per_month(loaded, cfg):
 
 def test_baseline_recorded(loaded, cfg):
     latest = {}
-    for row in load_control_rows(cfg):
-        if row["status"] == "SUCCESS":
+    # Baseline Bronze: thời gian tầng ingest (landing + Bronze) của mỗi kỳ, lần SUCCESS gần nhất
+    for row in layer_runs(cfg):
+        if row["status"] == "SUCCESS" and row["layer"] == "ingest":
             latest[row["period"]] = float(row["duration_s"])
+    periods = periods_between(cfg.pipeline["periods"]["first"], cfg.pipeline["periods"]["last"])
+    latest = {p: d for p, d in latest.items() if p in periods}  # bỏ đợt sửa dữ liệu (CORR*)
     RESULT["baseline_seconds"] = {"per_period": latest, "total": round(sum(latest.values()), 1),
                                   "max": max(latest.values(), default=None)}
-    periods = periods_between(cfg.pipeline["periods"]["first"], cfg.pipeline["periods"]["last"])
     assert set(latest) == set(periods), f"Kỳ chưa có lần chạy SUCCESS: {set(periods) - set(latest)}"

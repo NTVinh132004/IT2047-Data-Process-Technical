@@ -1,0 +1,140 @@
+# Test Business Vault (FR-22): khóa duy nhất, quan hệ tới Hub và snapshot table, con trỏ PIT không null, miền giá trị.
+version: 2
+models:
+- name: as_of_dates
+  description: 'Snapshot table: mỗi lần nạp tháng một mốc (R-33)'
+  columns:
+  - name: AS_OF_DATE
+    data_tests:
+    - unique
+    - not_null
+- name: pit_loan_monthly
+  description: PIT theo cấu trúc chuẩn; con trỏ tới ghost record khi chưa có phiên
+    bản (FR-13, R-33)
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - AS_OF_DATE
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: AS_OF_DATE
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('as_of_dates')
+          field: AS_OF_DATE
+  - name: SAT_LOAN_ORIGINATION_PK
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_ORIGINATION_LDTS
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_PROPERTY_PK
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_PROPERTY_LDTS
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_BALANCE_PK
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_BALANCE_LDTS
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_DELINQUENCY_PK
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_DELINQUENCY_LDTS
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_TERMINATION_PK
+    data_tests:
+    - not_null
+  - name: SAT_LOAN_TERMINATION_LDTS
+    data_tests:
+    - not_null
+- name: bsat_loan_risk
+  description: Satellite tính toán về rủi ro (FR-12)
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+  - name: delinquency_bucket
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - CURRENT
+          - D30
+          - D60
+          - D90_PLUS
+          - NA
+  - name: months_delinquent_consecutive
+    data_tests:
+    - not_null
+  - name: ever_d90
+    data_tests:
+    - not_null
+- name: bsat_loan_lifecycle
+  description: Satellite tính toán về vòng đời (FR-12)
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - LOAN_HK
+        - load_date
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_loan')
+          field: LOAN_HK
+  - name: load_date
+    data_tests:
+    - not_null
+  - name: record_source
+    data_tests:
+    - not_null
+  - name: lifecycle_status
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - DEFECT
+          - LIQUIDATED
+          - SOLD
+          - PREPAID
+          - MATURED
+          - DEFAULTED
+          - FORBEARANCE
+          - DELINQUENT
+          - CURRENT
