@@ -1,15 +1,17 @@
 # Lệnh chưa cài đặt sẽ thoát với mã lỗi, để không ai nhầm là đã chạy được.
-.PHONY: help up down landing run run-all correction status smoke gate test
+.PHONY: help up down landing run run-all correction status smoke gate test notebook verify-clean
 
 help:
-	@echo "make up | down | landing | run PERIOD=2020Q1 | run-all | correction | status | smoke | gate N=0 | test"
+	@echo "make up | down | landing | run PERIOD=2020Q1 | run-all | correction | status | smoke | gate N=0 | test | notebook | verify-clean"
 
 up:
 	@test -f .env || { echo "Thiếu .env: cp .env.example .env rồi đổi mật khẩu"; exit 1; }
 	mkdir -p data/lake
-	docker compose up -d --build --wait
+	docker compose build --provenance=false
+	docker compose up -d --wait
 	@# Package dbt (automate_dv) cài vào dbt/dbt_packages, không nằm trong git
 	test -d dbt/dbt_packages/automate_dv || docker compose exec -T airflow-scheduler bash -c "cd /opt/project/dbt && /opt/dbt-venv/bin/dbt deps"
+	docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d analytics' < docker/postgres/migrations/004_gold.sql
 	@# Pool: một job Spark (ingest, quality) và một lệnh dbt chạy cùng lúc (R-33)
 	docker compose exec -T airflow-scheduler airflow pools set spark_local 1 "Job Spark local trong container scheduler" >/dev/null
 	docker compose exec -T airflow-scheduler airflow pools set dbt 1 "Lệnh dbt qua Thrift Server" >/dev/null
@@ -46,3 +48,9 @@ gate:
 
 test:
 	uv run pytest tests
+
+notebook:
+	uv run python -m scripts.run_notebook
+
+verify-clean:
+	uv run python -m scripts.verify_clean

@@ -47,6 +47,9 @@ models:
     baseline:
       # Star schema ghi đè (SCD1), chỉ để đối chứng với Data Vault trong đợt sửa dữ liệu (FR-14, AC-09)
       +schema: baseline
+    gold:
+      +schema: gold
+      +materialized: table
 
 seeds:
   mortgage_datavault:

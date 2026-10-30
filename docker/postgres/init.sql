@@ -21,7 +21,7 @@ CREATE INDEX ON control.period_request (dataset, period, requested_at);
 CREATE TABLE control.layer_run (
     run_id           BIGSERIAL PRIMARY KEY,
     period           TEXT        NOT NULL,
-    layer            TEXT        NOT NULL CHECK (layer IN ('ingest', 'quality', 'raw_vault', 'business_vault')),
+    layer            TEXT        NOT NULL CHECK (layer IN ('ingest', 'quality', 'raw_vault', 'business_vault', 'gold', 'export')),
     -- SUPERSEDED: lần SUCCESS bị vô hiệu vì tầng phải dựng lại (python -m ingestion.control invalidate); giữ để kiểm toán
     status           TEXT        NOT NULL CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED', 'SUPERSEDED')),
     dataset          TEXT        NOT NULL,

@@ -34,9 +34,9 @@ import psycopg2.extras
 from ingestion.config import Config
 from ingestion.periods import periods_between
 
-LAYERS = ("ingest", "quality", "raw_vault", "business_vault")
-UPSTREAM = {"quality": "ingest", "raw_vault": "quality", "business_vault": "raw_vault"}
-CHRONOLOGICAL = {"raw_vault", "business_vault"}
+LAYERS = ("ingest", "quality", "raw_vault", "business_vault", "gold", "export")
+UPSTREAM = dict(zip(LAYERS[1:], LAYERS))
+CHRONOLOGICAL = {"raw_vault", "business_vault", "gold", "export"}
 MAX_ATTEMPTS = 3
 LEASE = timedelta(hours=1)
 

@@ -171,7 +171,7 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 **Giai đoạn 2: Raw Vault (tuần 3)**
 
-- [x] Cổng chất lượng trước dbt (mồ côi, trùng, sai kiểu, ngoài miền); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control
+- [x] Cổng chất lượng trước dbt chỉ chặn hard rule (sai số trường, khóa, kiểu, trùng khóa khác giá trị); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control. Soft rule (ngoài miền, mồ côi) báo cáo ở Business Vault (R-35)
 - [x] Staging dbt: tính hash key, `hash_diff`
 - [x] Model dbt incremental: Hub, Link (chỉ thêm mới), Satellite (chỉ thêm khi `hash_diff` đổi, bỏ qua dòng đã có)
 - [x] dbt test sau mỗi tầng; DAG dừng khi test lỗi
@@ -181,21 +181,27 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 **Giai đoạn 3: Business Vault và PIT (tuần 4)**
 
-- [ ] `bsat_loan_risk`: số tháng quá hạn liên tiếp, cờ từng quá hạn 90+, nhóm rủi ro
-- [ ] `bsat_loan_lifecycle`: trạng thái đang hoạt động, trả trước hạn, vỡ nợ, thanh lý
-- [ ] `pit_loan_monthly`: con trỏ tới phiên bản Satellite hiệu lực tại mỗi `load_date` theo tháng
-- [ ] Đợt sửa dữ liệu giả lập (FR-14) và bảng đối chứng `baseline_dim_loan_overwrite`: bằng chứng chính cho việc chọn Data Vault
+- [x] `bsat_loan_risk`: số tháng quá hạn liên tiếp, cờ từng quá hạn 90+, nhóm rủi ro
+- [x] `bsat_loan_lifecycle`: trạng thái đang hoạt động, trả trước hạn, vỡ nợ, thanh lý
+- [x] `pit_loan_monthly`: con trỏ tới phiên bản Satellite hiệu lực tại mỗi `load_date` theo tháng
+- [x] Đợt sửa dữ liệu giả lập (FR-14) và bảng đối chứng `baseline_dim_loan_overwrite`: bằng chứng chính cho việc chọn Data Vault
 
 Đầu ra: truy vấn được trạng thái khoản vay tại một tháng bất kỳ (AC-04); đợt sửa cho thấy Data Vault giữ được giá trị cũ, còn bảng ghi đè thì mất (AC-09).
 
+**Xác minh lại R-34/R-35 ngày 30/10/2026:** C2 đạt 9/9, C3 đạt 7/7 trên code commit `46b54b8` (workspace có thay đổi tài liệu chưa commit); 29 unit test đạt. Bằng chứng: `tests/gates/results/c2-20261030-125842.json`, `tests/gates/results/c3-20261030-130947.json`. Đủ điều kiện bắt đầu giai đoạn 4; chưa nghiệm thu C4.
+
 **Giai đoạn 4: Gold (tuần 5)**
 
-- [ ] `fact_loan_month` (hạt: khoản vay × tháng báo cáo), `dim_loan`, `dim_seller`, `dim_servicer`, `dim_date`, `dim_geography`
-- [ ] Mart: `mart_delinquency` (tháng × bang × bên bán × nhóm điểm tín dụng, LTV, DTI); `mart_prepayment`; `mart_covid_forbearance`
-- [ ] Xuất mart sang PostgreSQL; notebook trả lời 5 câu hỏi nghiệp vụ
-- [ ] `DAG Airflow` chạy Bronze → Gold bằng một lệnh; chạy lại theo README từ một bản clone sạch
+- [x] `fact_loan_month` (hạt: khoản vay × tháng báo cáo), `dim_loan`, `dim_seller`, `dim_servicer`, `dim_date`, `dim_geography`
+- [x] Mart: `mart_delinquency` (tháng × bang × bên bán × nhóm điểm tín dụng, LTV, DTI); `mart_prepayment`; `mart_covid_forbearance`
+- [x] Xuất mart sang PostgreSQL; notebook trả lời 5 câu hỏi nghiệp vụ
+- [x] `DAG Airflow` chạy Bronze → Gold bằng một lệnh; chạy lại theo README từ một bản clone sạch
 
 Đầu ra: **mốc MVP**: pipeline end-to-end trên bộ mẫu, đạt AC-01 đến AC-09.
+
+Thiết kế C4: `Review.md` R-36. Gold gồm bảng snapshot tái dựng từ Vault; dimension khoản vay giữ phiên bản khởi tạo theo con trỏ PIT. Hai tầng `gold`, `export` nhận lô kỳ sẵn sàng; export JDBC qua bảng trung gian rồi công bố cả ba mart bằng transaction. `make notebook` thực thi notebook; `make verify-clean` chạy toàn bộ kiểm thử trên clone tạm với lake và volume riêng, giữ nguyên dữ liệu workspace.
+
+**Cổng C4 đạt 30/10/2026:** 10/10 kiểm tra C4, hồi quy C0–C3 và 30 unit test đều đạt trên clone với lake/volume mới: tổng 69/69. Pipeline lần nạp đầu mất 1.056,6 giây, dưới mục tiêu tạm 45 phút; toàn bộ bộ kiểm thử mất khoảng 90 phút vì nhiều lượt nạp lại và thử lỗi có chủ đích. Notebook có 8 biểu đồ. Bằng chứng: `tests/gates/results/c4-20261030-150942.json`, log/JUnit ở `data/reports/`; chi tiết R-36.
 
 **Giai đoạn 5: Chạy thật và thực nghiệm (tuần 6)**
 

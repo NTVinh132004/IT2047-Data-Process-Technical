@@ -179,7 +179,7 @@ def test_ac09_correction_keeps_history(corrected, cfg):
     wrong = [r for r in check if not (r["pit_before"] == r["old_score"] and r["pit_after"] == r["new_score"]
                                       and r["overwrite_table"] == r["new_score"] and r["overwrite_rows"] == "1"
                                       and r["old_score"] != r["new_score"])]
-    RESULT["ac09"] = {"corrected": len(corrected), "checked": len(check), "wrong": wrong[:5], "sample": check[:3]}
+    RESULT["ac09"] = {"corrected": len(corrected), "checked": len(check), "wrong_count": len(wrong)}
     assert len(check) == len(corrected) and not wrong, wrong[:5]
 
 

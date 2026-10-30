@@ -1,0 +1,67 @@
+version: 2
+unit_tests:
+  - name: prepayment_uses_previous_calendar_month
+    model: mart_prepayment
+    given:
+      - input: ref('fact_loan_month')
+        rows:
+          - {reporting_date: '2020-01-01', is_active: true, current_upb: 1000, lifecycle_status: CURRENT, zero_balance_removal_upb: null}
+          - {reporting_date: '2020-02-01', is_active: false, current_upb: 0, lifecycle_status: PREPAID, zero_balance_removal_upb: 100}
+          - {reporting_date: '2020-04-01', is_active: false, current_upb: 0, lifecycle_status: PREPAID, zero_balance_removal_upb: 50}
+    expect:
+      rows:
+        - {reporting_date: '2020-01-01', previous_active_upb: null, smm: null}
+        - {reporting_date: '2020-02-01', previous_active_upb: 1000, smm: 0.1}
+        - {reporting_date: '2020-04-01', previous_active_upb: null, smm: null}
+  - name: loan_bands_keep_missing_separate
+    model: dim_loan
+    given:
+      - input: ref('sat_loan_origination')
+        rows:
+          - {LOAN_HK: a, load_date: '2020-01-01', credit_score: 9999, orig_ltv: 999, orig_dti: 999}
+          - {LOAN_HK: b, load_date: '2020-01-01', credit_score: 620, orig_ltv: 60, orig_dti: 20}
+          - {LOAN_HK: c, load_date: '2020-01-01', credit_score: 780, orig_ltv: 96, orig_dti: 51}
+    expect:
+      rows:
+        - {LOAN_HK: a, credit_score_band: N/A, ltv_band: N/A, dti_band: N/A}
+        - {LOAN_HK: b, credit_score_band: '620–679', ltv_band: '<=60', dti_band: '<=20'}
+        - {LOAN_HK: c, credit_score_band: '>=780', ltv_band: '>95', dti_band: '>50'}
+  - name: covid_outcomes_use_first_default_event_and_full_window
+    model: mart_covid_forbearance
+    given:
+      - input: ref('fact_loan_month')
+        rows:
+          - {LOAN_HK: a, reporting_date: '2020-03-01', in_forbearance: true}
+          - {LOAN_HK: a, reporting_date: '2020-04-01', in_forbearance: false, is_defaulted: true, default_reporting_date: '2020-02-01', delinquency_status: '06'}
+          - {LOAN_HK: a, reporting_date: '2021-03-01', in_forbearance: false, is_defaulted: true, default_reporting_date: '2020-02-01', delinquency_status: '00'}
+          - {LOAN_HK: b, reporting_date: '2020-03-01', in_forbearance: true}
+          - {LOAN_HK: b, reporting_date: '2020-04-01', in_forbearance: false, default_reporting_date: '2020-04-01', lifecycle_status: PREPAID, modification_flag: Y}
+          - {LOAN_HK: c, reporting_date: '2020-03-01', in_forbearance: true}
+          - {LOAN_HK: c, reporting_date: '2020-04-01', in_forbearance: false, delinquency_status: '00'}
+    expect:
+      rows:
+        - {last_forbearance_date: '2020-03-01', outcome: RECOVERED, loan_count: 1, deferral_count: 0}
+        - {last_forbearance_date: '2020-03-01', outcome: DEFAULTED, loan_count: 1, deferral_count: 0}
+        - {last_forbearance_date: '2020-03-01', outcome: UNKNOWN, loan_count: 1, deferral_count: 0}
+  - name: delinquency_excludes_missing_invalid_and_terminated_from_denominator
+    model: mart_delinquency
+    given:
+      - input: ref('fact_loan_month')
+        rows:
+          - {reporting_date: '2020-01-01', loan_version_key: a, geography_key: g, seller_key: s, current_upb: 100, is_active: true, delinquency_status: '00', delinquency_bucket: CURRENT}
+          - {reporting_date: '2020-01-01', loan_version_key: a, geography_key: g, seller_key: s, current_upb: 200, is_active: true, delinquency_status: '01', delinquency_bucket: D30}
+          - {reporting_date: '2020-01-01', loan_version_key: a, geography_key: g, seller_key: s, current_upb: 300, is_active: true, delinquency_status: null, delinquency_bucket: NA}
+          - {reporting_date: '2020-01-01', loan_version_key: a, geography_key: g, seller_key: s, current_upb: 400, is_active: true, delinquency_status: ZZ, delinquency_bucket: D90_PLUS}
+          - {reporting_date: '2020-01-01', loan_version_key: a, geography_key: g, seller_key: s, current_upb: 0, is_active: false, delinquency_status: '06', delinquency_bucket: D90_PLUS}
+      - input: ref('dim_loan')
+        rows:
+          - {loan_version_key: a, credit_score_band: N/A, ltv_band: N/A, dti_band: N/A}
+      - input: ref('dim_geography')
+        rows:
+          - {geography_key: g, property_state: CA}
+      - input: ref('dim_seller')
+        rows:
+          - {seller_key: s, seller_name: SYNTHETIC}
+    expect:
+      rows:
+        - {loan_count: 5, total_upb: 1000, eligible_count: 2, eligible_upb: 300, d30_count: 1, d60_count: 0, d90_plus_count: 0, d30_rate: 0.5}

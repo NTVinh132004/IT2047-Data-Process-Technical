@@ -125,3 +125,12 @@ def test_batch_never_includes_corrections():
 
 def test_non_chronological_layers_process_one_period():
     assert ready_batch("quality", ORDER, ALL3, [ok(p, "ingest", 1) for p in ("2019Q1", "2019Q2")], at(2), 10) == ["2019Q1"]
+
+
+def test_gold_and_export_wait_for_their_upstream_and_batch():
+    base = [ok(p, layer, 1) for p in ('2019Q1', '2019Q2')
+            for layer in ('ingest', 'quality', 'raw_vault', 'business_vault')]
+    assert ready_batch('gold', ORDER, ALL3, base, at(2), 40) == ['2019Q1', '2019Q2']
+    assert ready_periods('export', ORDER, ALL3, base, at(2)) == []
+    gold = base + [ok(p, 'gold', 2) for p in ('2019Q1', '2019Q2')]
+    assert ready_batch('export', ORDER, ALL3, gold, at(3), 40) == ['2019Q1', '2019Q2']

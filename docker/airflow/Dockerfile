@@ -17,3 +17,5 @@ RUN pip install --no-cache-dir "pyspark==3.5.5" "delta-spark==3.3.2" \
  && cd "$(python -c 'import pyspark, os; print(os.path.dirname(pyspark.__file__))')/jars" \
  && curl -fsSLO https://repo1.maven.org/maven2/io/delta/delta-spark_2.12/3.3.2/delta-spark_2.12-3.3.2.jar \
  && curl -fsSLO https://repo1.maven.org/maven2/io/delta/delta-storage/3.3.2/delta-storage-3.3.2.jar
+RUN cd "$(python -c 'import pyspark, os; print(os.path.dirname(pyspark.__file__))')/jars" \
+ && curl -fsSLO https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar

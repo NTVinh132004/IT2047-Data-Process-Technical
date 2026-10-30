@@ -24,7 +24,7 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 
 ## Trạng thái (30/10/2026)
 
-Cổng C0–C3 đạt trên kiến trúc R-33 (`tests/gates/results/`). Đang hoàn tất R-34 (xử lý theo lô Raw Vault/Business Vault) và R-35 (mã thiếu giữ thô tới Raw Vault, zero key, soft rule thành view `business_vault.quality_violation`), chạy lại C2, C3. Kế tiếp: giai đoạn 4 (C4).
+Cổng C0–C4 đạt (30/10/2026): 69/69 kiểm tra trên clone với lake/volume mới, gồm C4 10/10 và 30 unit test. Pipeline bộ mẫu đủ sáu tầng 1.056,6 giây; notebook 8 biểu đồ. Snapshot phase 4 được định danh, `source_digest` nằm trong `tests/gates/results/c4-20261030-150942.json` (R-36). Kế tiếp: giai đoạn 5 (C5), bộ đầy đủ và thực nghiệm.
 - Tầng phải dựng lại vì đổi model: `python -m ingestion.control invalidate --layers raw_vault,business_vault --reason ...` rồi `make run-all`; không chạy lại tầng dưới
 - Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
 

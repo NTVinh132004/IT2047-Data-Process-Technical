@@ -1,0 +1,71 @@
+version: 2
+models:
+- name: dim_loan
+  columns:
+  - name: loan_version_key
+    data_tests:
+    - unique
+    - not_null
+- name: dim_seller
+  columns:
+  - name: seller_key
+    data_tests:
+    - unique
+    - not_null
+- name: dim_servicer
+  columns:
+  - name: servicer_key
+    data_tests:
+    - unique
+    - not_null
+- name: dim_date
+  columns:
+  - name: reporting_date
+    data_tests:
+    - unique
+    - not_null
+- name: dim_geography
+  columns:
+  - name: geography_key
+    data_tests:
+    - unique
+    - not_null
+- name: fact_loan_month
+  columns:
+  - name: LOAN_HK
+    data_tests:
+    - not_null
+  - name: reporting_date
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_date')
+          field: reporting_date
+  - name: loan_version_key
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_loan')
+          field: loan_version_key
+  - name: seller_key
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_seller')
+          field: seller_key
+  - name: servicer_key
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_servicer')
+          field: servicer_key
+  - name: geography_key
+    data_tests:
+    - relationships:
+        arguments:
+          to: ref('dim_geography')
+          field: geography_key
+- name: mart_delinquency
+- name: mart_prepayment
+- name: mart_covid_forbearance

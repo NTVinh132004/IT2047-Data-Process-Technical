@@ -1,6 +1,6 @@
 # PRD và kế hoạch: Lakehouse + Data Vault 2.0 trên Spark (Freddie Mac)
 
-Oct 8, 2026 · @Vĩnh · Phiên bản 1.7 (30/10/2026), xem lịch sử ở mục 8
+Oct 8, 2026 · @Vĩnh · Phiên bản 1.8 (30/10/2026), xem lịch sử ở mục 8
 
 Sản phẩm là một pipeline chạy bằng một lệnh, biến dữ liệu khoản vay Freddie Mac vintage 2019 thành kho Data Vault giữ đủ lịch sử và các bảng Gold trả lời 5 câu hỏi rủi ro tín dụng. MVP trên bộ mẫu đạt cuối tuần 5, nộp cuối tuần 8. Bộ tài liệu gồm ba file: PRD (file này), Kế hoạch triển khai và `Review.md`. Vòng review ngày 27/10/2026 sửa lỗi thiết kế khóa Satellite, các chỗ PRD và kế hoạch lệch nhau, và các tiêu chí nghiệm thu chưa kiểm được; chi tiết trong `Review.md`.
 
@@ -108,15 +108,15 @@ MVP được nghiệm thu bằng 9 kiểm tra định lượng trên bộ mẫu 
 
 **Tiêu chí nghiệm thu MVP:**
 
-- [ ] AC-01: Số dòng Bronze bằng số dòng nguồn của lát kỳ ở mọi kỳ
-- [ ] AC-02: Chạy lại một kỳ bất kỳ (kỳ gần nhất và một kỳ cũ hơn) sinh 0 dòng mới ở Hub, Link, Satellite
-- [ ] AC-03: Sau kỳ cuối, số dòng `hub_loan` bằng số mã khoản vay khác nhau có ít nhất một dòng không vi phạm hard rule (orig hoặc perf)
-- [ ] AC-04: Với 100 khoản vay ngẫu nhiên, trạng thái lấy qua PIT tại tháng m khớp dòng perf tháng m ở Bronze
-- [ ] AC-05: Tổng dư nợ theo tháng ở Gold khớp tổng tính trực tiếp từ Bronze, sai lệch bằng 0
-- [ ] AC-06: Theo từng kỳ, số dòng sạch cộng số dòng quarantine (vi phạm hard rule) cộng số bản sao bị khử trùng lặp bằng số dòng Bronze
-- [ ] AC-07: Toàn bộ bộ mẫu chạy bằng một lệnh; chạy lại được theo README từ một bản clone sạch, sau `docker compose down -v`
-- [ ] AC-08: Dashboard hoặc notebook thay thế trả lời đủ 5 câu hỏi nghiệp vụ
-- [ ] AC-09: Sau đợt sửa (FR-14), Satellite khởi tạo có phiên bản mới cho đúng các khoản vay bị sửa và phiên bản cũ còn nguyên; PIT trước và sau `load_date` của đợt sửa trả về giá trị cũ và giá trị mới; bảng đối chứng ghi đè chỉ còn giá trị mới
+- [x] AC-01: Số dòng Bronze bằng số dòng nguồn của lát kỳ ở mọi kỳ
+- [x] AC-02: Chạy lại một kỳ bất kỳ (kỳ gần nhất và một kỳ cũ hơn) sinh 0 dòng mới ở Hub, Link, Satellite
+- [x] AC-03: Sau kỳ cuối, số dòng `hub_loan` bằng số mã khoản vay khác nhau có ít nhất một dòng không vi phạm hard rule (orig hoặc perf)
+- [x] AC-04: Với 100 khoản vay ngẫu nhiên, trạng thái lấy qua PIT tại tháng m khớp dòng perf tháng m ở Bronze
+- [x] AC-05: Tổng dư nợ theo tháng ở Gold khớp tổng tính trực tiếp từ Bronze, sai lệch bằng 0
+- [x] AC-06: Theo từng kỳ, số dòng sạch cộng số dòng quarantine (vi phạm hard rule) cộng số bản sao bị khử trùng lặp bằng số dòng Bronze
+- [x] AC-07: Toàn bộ bộ mẫu chạy bằng một lệnh; chạy lại được theo README từ một bản clone sạch, sau `docker compose down -v`
+- [x] AC-08: Dashboard hoặc notebook thay thế trả lời đủ 5 câu hỏi nghiệp vụ
+- [x] AC-09: Sau đợt sửa (FR-14), Satellite khởi tạo có phiên bản mới cho đúng các khoản vay bị sửa và phiên bản cũ còn nguyên; PIT trước và sau `load_date` của đợt sửa trả về giá trị cũ và giá trị mới; bảng đối chứng ghi đè chỉ còn giá trị mới
 
 Thực nghiệm trên bộ đầy đủ không thuộc MVP; chúng được nghiệm thu ở cổng C5 (tuần 6) và chốt ở cổng code freeze C6 (tuần 7).
 
@@ -166,3 +166,5 @@ PRD là tài liệu sống: được sửa khi spike, cổng kiểm thử hoặc
 | 1.5 | 30/10/2026 | Bổ sung (thay đổi nhỏ): cổng C2 đạt (AC-02, AC-03, AC-06, FR-06, FR-07, FR-22). FR-10: staging lưu thành bảng ghi đè mỗi lần chạy thay vì view, không đổi tiêu chí | `Review.md` R-29, R-30; `tests/gates/results/c2-*.json` |
 | 1.6 | 30/10/2026 | Đối chiếu chuẩn Data Vault 2.0: FR-07 tách hard rule/soft rule; FR-10 thêm record tracking satellite và applied date, bỏ lọc nghiệp vụ khi nạp; FR-13 PIT theo cấu trúc chuẩn (snapshot table, ghost record, chỉ đọc Raw Vault); FR-01, FR-02, FR-21 điều phối mỗi tầng một job đọc bảng điều khiển; AC-03, AC-06 sửa theo FR-07. Triển khai lại từ trạng thái sạch, chạy lại cổng C1–C3 | `Review.md` R-33; `docs/danh-gia-kien-truc-dv2.md` |
 | 1.7 | 30/10/2026 | FR-07: soft rule chuyển từ cổng chất lượng sang view Business Vault `quality_violation` (đọc Raw Vault), kiểm bằng dbt unit test; staging giữ mã thiếu thô, zero key cho seller/servicer thiếu. FR-01, FR-21: tầng Raw Vault và Business Vault xử lý một lô các kỳ liên tiếp trong một lần dbt build. Tiêu chí C2 về báo cáo vi phạm chuyển sang C3 (báo cáo nằm ở Business Vault). Dựng lại Raw Vault và Business Vault, không chạy lại landing, Bronze, cổng chất lượng | `Review.md` R-34, R-35 |
+| 1.8 | 30/10/2026 | Làm rõ triển khai C4: Gold giữ phiên bản chiều khởi tạo theo PIT; Gold/export gom kỳ sẵn sàng, dựng snapshot từ Vault; JDBC công bố 3 mart theo transaction; notebook và kiểm thử clone sạch. Không đổi FR/AC hay nới cổng | `Review.md` R-36 |
+| 1.8 | 30/10/2026 | Bổ sung kết quả: MVP đạt AC-01–AC-09, C4 đạt 10/10; toàn bộ 69 kiểm tra trên clone với lake/volume mới đều đạt. Pipeline bộ mẫu 1.056,6 giây, dưới mục tiêu tạm 45 phút; giữ nguyên mục tiêu và tiêu chí | `tests/gates/results/c4-20261030-150942.json`; R-36 |

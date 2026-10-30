@@ -13,7 +13,8 @@ from airflow.sdk import dag, get_current_context, task
 
 from ingestion.control import LAYERS
 
-POOL = {"ingest": "spark_local", "quality": "spark_local", "raw_vault": "dbt", "business_vault": "dbt"}
+POOL = {"ingest": "spark_local", "quality": "spark_local", "raw_vault": "dbt", "business_vault": "dbt",
+        "gold": "dbt", "export": "spark_local"}
 BUDGET = timedelta(minutes=50)
 
 

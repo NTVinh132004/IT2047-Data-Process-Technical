@@ -111,7 +111,7 @@ Tỷ lệ quá hạn 30/60/90+ của tháng m bằng số khoản vay đang ho�
 
 **Hoãn trả nợ (forbearance):** tháng có `borrower_assistance_plan = F`. Khoản vay được tính là hoãn trả do COVID nếu có ít nhất một tháng `F` trong 202003–202112. `disaster_delinquency_flag = Y` và `payment_deferral_flag` (`C` = được hoãn trả trong tháng, `P` = đã được hoãn trả trước đó) là thông tin đi kèm, không dùng để xác định forbearance.
 
-**Kết cục sau hoãn trả (câu hỏi 4):** xét 12 tháng sau tháng `F` cuối cùng và lấy kết cục đầu tiên theo thứ tự ưu tiên: vỡ nợ, trả trước hạn, sửa đổi khoản vay (`modification_flag = Y`). Nếu không có kết cục nào, khoản vay "hồi phục" khi tháng cuối của cửa sổ có mã `00`, ngược lại là "còn quá hạn". Trên bộ mẫu: 3.310 khoản vay gồm hồi phục 1.462, trả trước hạn 1.162, vỡ nợ 603, còn quá hạn 75, sửa đổi 8; có 1.748 khoản vay dùng payment deferral.
+**Kết cục sau hoãn trả (câu hỏi 4):** cohort có ít nhất một tháng `F` trong 202003–202112; xét 12 tháng sau tháng `F` cuối cùng trong toàn bộ lịch sử. Ưu tiên sự kiện vỡ nợ lần đầu trong cửa sổ, trả trước hạn, rồi sửa đổi khoản vay (`modification_flag = Y`). Trạng thái đã vỡ nợ từ trước cửa sổ không phải sự kiện mới. Nếu không có sự kiện nào, khoản vay "hồi phục" khi đúng tháng cuối của cửa sổ có mã `00`; có quan sát hợp lệ khác thì "còn quá hạn". Thiếu quan sát hoặc thiếu trạng thái ở tháng cuối được ghi `UNKNOWN`, không suy diễn kết cục. R-36 làm rõ ca thiếu dữ liệu và thời điểm sự kiện; số liệu kết cục phải lấy từ lần chạy oracle C4 hiện tại, thay cho thống kê khám phá trước đây dùng cửa sổ quan sát khác. Đây là phân tích hồi cứu, không dùng làm đặc trưng dự báo tại thời điểm hoãn trả.
 
 **Trạng thái vòng đời** (`bsat_loan_lifecycle`, tại tháng m, theo thứ tự ưu tiên):
 

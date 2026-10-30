@@ -1,0 +1,90 @@
+{
+  "gate": "C2",
+  "commit": "46b54b8",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T14:34:22",
+  "hash_rules": true,
+  "smoke": {
+    "counts": {
+      "orig_clean": 13,
+      "orig_quarantine": 4,
+      "orig_dedup": 1,
+      "perf_clean": 24,
+      "perf_quarantine": 5,
+      "perf_dedup": 1,
+      "rows_clean": 37,
+      "rows_rejected": 9
+    },
+    "problems": []
+  },
+  "ac06_totals": {
+    "orig_bronze": 50000,
+    "orig_clean": 50000,
+    "orig_quarantine": 0,
+    "orig_dedup": 0,
+    "perf_bronze": 1934614,
+    "perf_clean": 1934614,
+    "perf_quarantine": 0,
+    "perf_dedup": 0
+  },
+  "quarantine_in_raw_vault": 0,
+  "ac03": {
+    "hub": "50000",
+    "orig_with_perf": "50000",
+    "loans_with_clean_rows": "50000"
+  },
+  "dbt_test_raw_vault": "\u001b[0m14:12:53  Done. PASS=82 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=82",
+  "ac02": {
+    "before": {
+      "hub_loan": 50000,
+      "hub_seller": 28,
+      "hub_servicer": 41,
+      "link_loan_seller": 50000,
+      "link_loan_servicer": 74837,
+      "sat_loan_origination": 50001,
+      "sat_loan_property": 50001,
+      "sat_loan_balance": 1934615,
+      "sat_loan_delinquency": 109998,
+      "sat_loan_termination": 100367,
+      "xts_loan": 1984614,
+      "xts_loan_servicer": 1934614
+    },
+    "after": {
+      "hub_loan": 50000,
+      "hub_seller": 28,
+      "hub_servicer": 41,
+      "link_loan_seller": 50000,
+      "link_loan_servicer": 74837,
+      "sat_loan_origination": 50001,
+      "sat_loan_property": 50001,
+      "sat_loan_balance": 1934615,
+      "sat_loan_delinquency": 109998,
+      "sat_loan_termination": 100367,
+      "xts_loan": 1984614,
+      "xts_loan_servicer": 1934614
+    }
+  },
+  "fr22": {
+    "exit_code": 1,
+    "runs": [
+      {
+        "run_id": 193,
+        "period": "2019Q3",
+        "layer": "ingest",
+        "status": "SUCCESS"
+      },
+      {
+        "run_id": 194,
+        "period": "2019Q3",
+        "layer": "quality",
+        "status": "SUCCESS"
+      },
+      {
+        "run_id": 195,
+        "period": "2019Q3",
+        "layer": "raw_vault",
+        "status": "FAILED"
+      }
+    ]
+  }
+}

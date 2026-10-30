@@ -43,3 +43,6 @@ corrections:
     changes:
       credit_score: 20
       orig_dti: -5
+export:
+  database: gold
+  marts: [mart_delinquency, mart_prepayment, mart_covid_forbearance]

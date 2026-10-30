@@ -11,6 +11,7 @@ Lần chạy đầu nạp toàn bộ 29 kỳ của bộ mẫu (make run-all, kho
 """
 import json
 import shutil
+import time
 from collections import Counter, defaultdict
 from glob import glob
 from pathlib import Path
@@ -100,7 +101,9 @@ def stack():
 
 @pytest.fixture(scope="module")
 def loaded(stack, cfg):
+    start = time.monotonic()
     sh("make", "run-all", timeout=3 * 3600)
+    RESULT['end_to_end_seconds'] = round(time.monotonic() - start, 1)
     return expected_slices(cfg)
 
 
@@ -152,7 +155,8 @@ def test_rerun_period_idempotent(loaded, cfg):
     assert after_rows == before_rows, "Chạy lại kỳ làm đổi số dòng Bronze"
     # Mỗi tầng đúng một lần chạy mới, đều SUCCESS (lần FAILED rồi thử lại cũng được ghi, nên chỉ đếm SUCCESS)
     success = sorted(r["layer"] for r in new_runs if r["status"] == "SUCCESS" and r["period"] == RERUN_PERIOD)
-    assert success == sorted(["ingest", "quality", "raw_vault", "business_vault"]), new_runs
+    from ingestion.control import LAYERS
+    assert success == sorted(LAYERS), new_runs
 
 
 def test_rename_column_in_conf_only(loaded, cfg):

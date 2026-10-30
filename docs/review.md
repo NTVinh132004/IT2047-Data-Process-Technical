@@ -221,7 +221,7 @@ Ghi lại để đưa vào báo cáo (chương Hạn chế và hướng phát tr
 
 - `ingestion.control.ready_batch` (hàm thuần, có unit test) gom các kỳ liên tiếp đã sẵn sàng của `raw_vault` và `business_vault` thành một lô, tối đa `orchestration.max_periods_per_batch` (40) kỳ. Một lô dừng ở kỳ đầu tiên chưa sẵn sàng, không bao giờ chứa đợt sửa dữ liệu (đợt sửa có `load_date` riêng nên luôn đi một mình), và bị cắt khi các yêu cầu có `options` khác nhau. Tầng `ingest`, `quality` vẫn mỗi lần một kỳ.
 - dbt nhận `--vars {"periods": [...]}`; `stg_*` lọc theo danh sách kỳ. Mỗi kỳ trong lô vẫn có một dòng `control.layer_run` riêng (ghi kèm `details.batch`), nên điều kiện sẵn sàng và kiểm toán theo kỳ không đổi.
-- Đúng chuẩn vì Satellite so `hash_diff` với phiên bản liền trước theo (`hash_key`, `load_date`) trong cùng lần nạp, như cách nạp nhiều lần giao một lúc của automate-dv (`vault_insert_by_period`, [ADV-MAT]); `load_date` vẫn chỉ đi tới (DV-04).
+- Satellite so `hash_diff` với phiên bản liền trước theo (`hash_key`, `load_date`) trong cùng lần nạp; dòng đầu lô so với phiên bản mới nhất đã có, theo tài liệu [AutomateDV Loading](https://automate-dv.readthedocs.io/en/latest/best_practises/loading/) (base loads và incremental load). `load_date` vẫn chỉ đi tới (DV-04). Làm rõ nguồn khi tiếp quản ngày 30/10/2026: dự án dùng `incremental` và cơ chế gom lô riêng, không dùng `vault_insert_by_period`; materialisation đó đã deprecated từ 0.11.0 và không được AutomateDV khuyến nghị cho production. Đây là sửa căn cứ tài liệu, không đổi kiến trúc hay tiêu chí cổng.
 - Trạng thái mới `SUPERSEDED` và lệnh `python -m ingestion.control invalidate --layers ... --reason ...`: đánh dấu các lần SUCCESS của tầng phải dựng lại mà không xóa nhật ký; `make run-all` khi đó chỉ chạy các tầng bị đánh dấu (PL-03).
 
 **R-35. Hoàn thiện chuẩn ở staging và soft rule.** Rà lại sau R-33 thấy ba chỗ còn lệch:
@@ -234,3 +234,47 @@ Ghi lại để đưa vào báo cáo (chương Hạn chế và hướng phát tr
 | 4 | dbt unit test không chạy được trên Spark Thrift Server: materialization `unit` gọi `run_query` cho `CREATE TEMPORARY VIEW`, câu lệnh không trả result set nên lỗi `'NoneType' object is not iterable` | Ghi đè `unit` cho adapter `spark` (`dbt/macros/spark_unit_test.sql`), chép nguyên bản dbt-core 1.12, chỉ đổi dòng tạo bảng tạm sang `statement` không lấy kết quả. Đăng ký DEV-06. Đã kiểm test có thể trượt: đổi một dòng kỳ vọng thì test báo FAIL |
 
 *Phạm vi:* đánh dấu SUPERSEDED và xóa schema `staging`, `raw_vault`, `business_vault`, `baseline` cùng hai bảng `quality.*_soft_violation`; chạy lại Raw Vault và Business Vault theo lô. Landing, Bronze và cổng chất lượng không chạy lại vì dữ liệu `_clean`, `_quarantine`, `_dedup` không đổi (`make smoke` xác nhận). Chạy lại cổng C2, C3. PRD lên 1.7.
+
+## 14. Giai đoạn 4: Gold, PostgreSQL và notebook
+
+**R-36. Thiết kế Gold và phục vụ phân tích (30/10/2026).** Triển khai FR-15–FR-17, FR-21–FR-22 và AC-05/07/08 theo phạm vi đã chốt; không cắt thêm yêu cầu. Nguồn đối chiếu trước khi thiết kế:
+
+- [Kimball, Fact Tables](https://www.kimballgroup.com/2008/11/fact-tables/): khai báo hạt trước khi chọn khóa/measure; fact khoản vay × tháng báo cáo, chỉ cho tháng nguồn perf có quan sát.
+- [Databricks, Medallion](https://docs.databricks.com/aws/en/lakehouse/medallion): Gold mô hình chiều và tổng hợp cho người phân tích; Raw/Business Vault vẫn nằm trong Silver theo quyết định dự án.
+- [Spark JDBC 3.5.6](https://spark.apache.org/docs/3.5.6/sql-data-sources-jdbc.html): DataFrameWriter JDBC và driver PostgreSQL. Trang 3.5.5 trả 404 khi tra cứu; tham khảo bản cùng nhánh 3.5, runtime vẫn Spark 3.5.5.
+- [PostgreSQL 16, Transactions](https://www.postgresql.org/docs/16/tutorial-transactions.html): công bố dữ liệu trong transaction để người đọc không thấy bản cập nhật một phần.
+
+| Thành phần | Quyết định và giới hạn |
+| --- | --- |
+| `fact_loan_month` | Lưới từ `xts_loan` nguồn perf; equi-join PIT và 5 Satellite cùng Business Vault. Không đọc staging/Bronze. `reporting_date` lấy từ mốc giao tháng và độ trễ cấu hình (DEV-03), tách khỏi `load_date`; đợt sửa orig không sinh tháng perf giả |
+| 5 dimension | `dim_loan` giữ từng phiên bản khởi tạo, khóa `(LOAN_HK, load_date)` biểu diễn bằng chuỗi; fact trỏ đúng phiên bản PIT, không hồi tố nhóm điểm/LTV/DTI khi CORR1 tới. Geography theo bang/mã bưu chính; date theo tháng báo cáo; seller từ Link đầu tiên, servicer theo tracking Link của tháng. Giữ hạn chế tên `OTHER` |
+| 3 mart | Công thức theo từ điển dữ liệu mục 4; tổng dư nợ và số dòng giữ cả dòng kết thúc để đối soát AC-05. Tỷ lệ quá hạn chỉ dùng khoản hoạt động và loại mã thiếu. SMM dùng đúng tháng lịch trước, thiếu mẫu số thì null; không khẳng định tái cấp vốn là nguyên nhân. Cohort COVID có một kết cục mỗi khoản vay, chỉ tính sự kiện vỡ nợ lần đầu trong cửa sổ sau tháng F cuối của toàn lịch sử; thiếu quan sát cuối cửa sổ mà chưa có sự kiện thì `UNKNOWN`, không tự gán hồi phục |
+| Dựng Gold | Bảng Delta tái dựng từ Vault đã lưu, không thêm lịch sử lần nữa. Đánh đổi: quét lại fact, đổi lại logic tổng hợp và correction đơn giản, idempotent. Đo quy mô đầy đủ ở C5 trước khi tối ưu incremental |
+| Điều phối | Thêm `gold`, `export` vào chuỗi tầng và nhật ký; gom kỳ liên tiếp đã sẵn sàng để không dựng/xuất lại cùng snapshot 29 lần. CORR1 vẫn đi riêng. Tầng cũ SUCCESS không chạy lại |
+| Công bố PostgreSQL | PySpark JDBC ghi ba mart vào `export_stage`, đối soát số dòng, rồi thay nội dung `serving` trong một transaction; lỗi trước commit giữ bản phục vụ cũ. Khóa publication chung chặn export đọc lúc Gold thay bảng. Một partition JDBC vì đây là mart tổng hợp; không dùng database metastore |
+| Notebook | Đọc PostgreSQL và vẽ đủ 5 câu hỏi; source không chứa output dữ liệu. Bản chạy có kết quả lưu dưới `data/reports/`, không commit |
+| Kiểm thử C4 | AC-05 từng tháng; oracle Python/Decimal trực tiếp TXT cho mart, ca tổng hợp cho ranh giới nhóm và SMM; dbt grain/relationships; PostgreSQL bằng Delta; thực thi notebook và kiểm biểu đồ; nạp lại Gold/export; hồi quy toàn bộ trên clone tạm với lake/volume riêng (`make verify-clean`). Không nới cổng |
+
+Sửa lỗi vận hành phát hiện khi thử: `make up` build với `--provenance=false` để image cache không đổi chỉ vì attestation có timestamp mới, tránh tạo lại container và giết job đang chạy trong các fixture cổng. Lease của job đã mất tiến trình được cho hết hạn để cơ chế PL-05 nhận lại, không xóa nhật ký.
+
+R-36 làm rõ kiểm chứng nghiệp vụ: SMM/CPR dùng DOUBLE để tránh giảm scale của phép trừ Decimal trước POWER trên Spark; số tiền và AC-05 vẫn Decimal. Mã quá hạn sai miền không vào tử số/mẫu số tỷ lệ nhưng dòng fact vẫn được giữ và có báo cáo quality. Gold có cờ publication đã commit trước build; build lỗi hoặc job chết thì export chờ lần Gold hợp lệ tiếp theo. C4 kiểm rollback transaction và việc Gold lỗi chặn export bằng dữ liệu giả lập.
+
+### Kết quả nghiệm thu R-36
+
+Ngày 30/10/2026, `make verify-clean` đạt **69/69** (C0 6, C1 7, C2 9, C3 7, C4 10, unit 30) trên clone snapshot code, lake ban đầu chưa tồn tại và volume Docker mới sau `down -v`. C4 không bỏ qua kiểm tra nào: `passed=true`, AC-07 ghi hash snapshot `e0ba6679c610248dfcb4fb049926d48b2c349b7327796c092496462da2b6e48e`. Code chưa commit; kết quả gắn với commit nền `46b54b8`, cờ `uncommitted_changes=true` và hash trên, không coi commit nền là toàn bộ code C4.
+
+- AC-05: đủ 87 tháng, 0 tháng lệch dư nợ/số dòng; oracle mart từ TXT có 0 tổng tháng sai.
+- PostgreSQL bằng Delta: `mart_delinquency` 1.026.938 dòng, `mart_prepayment` 87, `mart_covid_forbearance` 229.
+- Notebook thực thi đủ, tạo 8 biểu đồ; kiểm rollback khi mart thứ hai lỗi và Gold lỗi chặn export đều đạt.
+- Lần nạp đầu từ `make run-all` qua đủ sáu tầng: **1.056,6 giây**, dưới mục tiêu tạm 45 phút. Không đổi mục tiêu. Đây là một baseline bộ mẫu, không thay thế các thực nghiệm ba lần ở C5. Bộ kiểm thử toàn bộ mất 5.412,31 giây vì có nhiều lượt nạp lại và thử lỗi.
+- Bằng chứng: `tests/gates/results/c0-20261030-134301.json`, `c1-20261030-140936.json`, `c2-20261030-143422.json`, `c3-20261030-145648.json`, `c4-20261030-150942.json`; log, JUnit và manifest snapshot tại `data/reports/clean-*` (không commit dữ liệu).
+
+```mermaid
+flowchart LR
+    TXT --> Landing --> Bronze --> Hard["Cổng hard rule"] --> Staging --> RV["Raw Vault"]
+    Hard --> Quarantine
+    RV --> BV["Business Vault / PIT / quality_violation"]
+    RV --> Gold["Gold: fact, 5 dim, 3 mart"]
+    BV --> Gold
+    Gold --> JDBC["JDBC → export_stage"] --> PG["Transaction → serving"] --> Notebook["Notebook: 5 câu hỏi"]
+```
