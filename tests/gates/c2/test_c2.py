@@ -13,6 +13,7 @@ Lần đầu chạy lại mọi kỳ qua DAG mới (khoảng 45 phút trên bộ
 import csv
 import io
 import json
+import re
 from collections import Counter
 
 import pyarrow as pa
@@ -37,8 +38,9 @@ def spark_sql(query: str) -> list[dict]:
     out = sh("docker", "compose", "exec", "-T", "spark-thrift", "/opt/spark/bin/beeline", "-u",
              "jdbc:hive2://localhost:10000", "-n", "lakehouse", "--silent=true", "--outputformat=csv2",
              "-e", query).stdout
-    lines = [line for line in out.splitlines() if line and not line.startswith("0: jdbc")]
-    return list(csv.DictReader(io.StringIO("\n".join(lines))))
+    # Dòng tiêu đề cột dính liền dấu nhắc của beeline ("0: jdbc:hive2://...> t,n"): bóc dấu nhắc, giữ nội dung
+    lines = [re.sub(r"^\d+: jdbc:hive2://\S+> ?", "", line) for line in out.splitlines()]
+    return list(csv.DictReader(io.StringIO("\n".join(line for line in lines if line))))
 
 
 def delta_rows_per_period(database: str, table: str) -> Counter:
@@ -93,7 +95,9 @@ def test_hash_rules_fr06(loaded):
 
 def test_quality_gate_on_fixture(loaded):
     out = sh("make", "smoke", check=False, timeout=1800)
-    report = json.loads(out.stdout.strip().splitlines()[-1])
+    json_lines = [line for line in out.stdout.splitlines() if line.startswith("{")]
+    assert json_lines, f"make smoke không in kết quả JSON:\n{out.stdout[-2000:]}\n{out.stderr[-2000:]}"
+    report = json.loads(json_lines[-1])
     RESULT["smoke"] = report
     assert out.returncode == 0 and not report["problems"], report
 

@@ -7,7 +7,7 @@ Tài liệu: [PRD](docs/PRD.md) · [Kế hoạch triển khai](docs/ke-hoach-tri
 
 ## Trạng thái
 
-Cổng C0 đạt (29/10/2026). Đang làm giai đoạn 1: hạ tầng, Bronze và `load_control` (cổng C1).
+Cổng C0, C1, C2 đạt (30/10/2026). Đang làm giai đoạn 3: Business Vault, PIT, đợt sửa dữ liệu (cổng C3).
 
 ## Yêu cầu máy
 
@@ -37,6 +37,7 @@ cp .env.example .env        # đổi mật khẩu và AIRFLOW_JWT_SECRET
 make up                     # build image, khởi động và chờ mọi service healthy
 make run PERIOD=2019Q2      # nạp một kỳ (chạy cả khi kỳ đã SUCCESS)
 make run-all                # nạp tuần tự mọi kỳ chưa SUCCESS
+make smoke                  # kiểm nhanh luồng trên dữ liệu giả lập (khoảng 30 giây)
 make down
 ```
 

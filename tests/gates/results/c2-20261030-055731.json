@@ -1,0 +1,16 @@
+{
+  "gate": "C2",
+  "commit": "c5bd435",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T05:57:31",
+  "hash_rules": true,
+  "ac06_totals": {
+    "orig_bronze": 50000,
+    "orig_clean": 50000,
+    "orig_quarantine": 0,
+    "perf_bronze": 1934614,
+    "perf_clean": 1934614,
+    "perf_quarantine": 0
+  },
+  "dbt_test_raw_vault": "\u001b[0m05:57:21  Done. PASS=64 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=64"
+}

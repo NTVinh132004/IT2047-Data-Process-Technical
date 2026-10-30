@@ -149,3 +149,14 @@ Spike ở `experiments/spike_c0/`: Spark Thrift Server (Delta, metastore Derby n
 | 11 | `dbt-core-experimental-parser` (phụ thuộc của dbt-core 1.12) chỉ có sdist, lúc cài tải wheel 55 MB từ GitHub Releases. Wheel được tải sẵn vào `docker/airflow/wheels/` (kiểm sha256 theo `assets.json` của gói, không đưa vào git) và cài qua `--find-links` | Mạng tới GitHub Releases ngày 30/10 chỉ khoảng 40 KB/s, build treo. Thư mục rỗng thì pip tải như thường, nên không mất tính tái lập |
 | 12 | Một kỳ chỉ được coi là đã nạp xong khi có lần chạy SUCCESS đã qua cổng chất lượng (`rows_clean` có giá trị) | Các lần chạy của DAG giai đoạn 1 chưa có cổng chất lượng và Raw Vault; `make run-all` phải chạy lại chúng |
 | 13 | Unit test hash (FR-06) chạy trên SQL thật do automate_dv sinh ra (seed `hash_cases` và test `assert_hash_rules`), không viết lại thuật toán bằng Python | Viết lại bằng Python chỉ chứng minh bản Python đúng, không chứng minh dbt đúng |
+
+**R-30. Staging lưu thành bảng thay vì view.**
+
+| Vấn đề | Quyết định |
+| --- | --- |
+| Từ kỳ thứ hai, `sat_loan_property` và `sat_loan_origination` (incremental) chạy hơn 3 phút rồi làm Thrift Server tràn heap 3 GB và tắt (hai lần ngày 30/10, kỳ 2019Q2), dù dữ liệu của kỳ chỉ vài chục nghìn dòng. Riêng `EXPLAIN` (chỉ lập kế hoạch) đã mất 63 giây và đẩy bộ nhớ Thrift lên gần 3 GB. Nguyên nhân: Spark không lưu tạm CTE và view mà chép cây biểu thức gốc ở mỗi chỗ tham chiếu. Macro `sat` incremental tham chiếu stage 5 lần, mỗi bản chép mang theo 31 biểu thức `CASE` của `base_*` và các hash `CONCAT_WS` nhiều cột | `stg_orig`, `stg_perf`, `stg_perf_termination` là bảng Delta ghi lại mỗi lần chạy (chỉ chứa kỳ đang nạp); `base_*` vẫn là view. `EXPLAIN` cùng câu lệnh còn 3 giây. Hash chỉ tính một lần cho cả 10 model Raw Vault |
+| Spike C0 không bắt được lỗi này | Staging của spike chỉ hash 9 cột và không có lớp `base` ép kiểu. Bài học cho C3 (PIT, Business Vault): model incremental nào tham chiếu nguồn nhiều lần thì nguồn đó phải là bảng |
+
+Kèm theo: giới hạn lịch sử truy vấn của Spark UI (`spark.sql.ui.retainedExecutions` và các cấu hình liên quan trong `docker/spark/conf/spark-defaults.conf`). Đây là biện pháp phòng ngừa cho Thrift Server chạy lâu, không phải nguyên nhân của lần tràn heap trên; chẩn đoán ban đầu "do tích dồn lịch sử" là chưa đúng.
+
+Kế hoạch mục 3 ghi "Staging là view dbt, không lưu bền": nay staging của Raw Vault là bảng tạm, ghi đè mỗi lần chạy, vẫn không giữ lịch sử.

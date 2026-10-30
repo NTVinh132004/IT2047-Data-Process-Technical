@@ -20,9 +20,8 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 
 ## Trạng thái (30/10/2026)
 
-Cổng C0 đạt 29/10/2026, cổng C1 đạt 30/10/2026 (`tests/gates/results/`). Đang ở giai đoạn 2: cổng chất lượng PySpark + quarantine, staging dbt, Raw Vault; nghiệm thu ở C2.
+Cổng C0, C1, C2 đạt (`tests/gates/results/`). Đang ở giai đoạn 3: Business Vault (`bsat_loan_risk`, `bsat_loan_lifecycle`), PIT, đợt sửa dữ liệu FR-14 và bảng đối chứng; nghiệm thu ở C3.
 - Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
-- Fixture lỗi giả lập cho C2: `tests/fixtures/quality/` (sinh bằng `make_fixture.py`, kết quả mong đợi trong `expected.yml`)
 
 ## Môi trường
 
@@ -31,5 +30,8 @@ Cổng C0 đạt 29/10/2026, cổng C1 đạt 30/10/2026 (`tests/gates/results/`
 - `uv` ở `~/.local/bin`; Python 3.11 qua `uv run`; `make gate`/`make test` dùng `uv run pytest`
 - Stack chính: `make up`; nạp: `make run PERIOD=...`, `make run-all`; Airflow UI http://localhost:8080
 - `make gate N=0` tự bật và tắt stack spike (khoảng 3 phút); `make gate N=1` khoảng 2 phút khi đã nạp đủ 29 kỳ
-- Pipeline: TXT → landing (Delta, phân vùng theo tháng, dựng lại khi nguồn đổi) → Bronze (theo kỳ) (R-27, R-28)
-- automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `gen_shim.py`, `spark__hub`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)
+- Pipeline: TXT → landing → Bronze → cổng chất lượng (`quality.*_clean`/`_quarantine`) → dbt staging (bảng) → Raw Vault (R-27 đến R-30)
+- `make smoke`: landing → Bronze → cổng chất lượng trên fixture giả lập (khoảng 30 giây). `make gate N=2` khoảng 15 phút khi đã nạp đủ 29 kỳ
+- dbt chạy trong container scheduler: `/opt/dbt-venv/bin/dbt` (thư mục `/opt/project/dbt`). Model base_* sinh từ conf: `uv run python -m scripts.gen_dbt_staging`
+- Model incremental tham chiếu nguồn nhiều lần thì nguồn phải là bảng, không phải view (Spark chép cây biểu thức của view, R-30)
+- automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `scripts/gen_automate_dv_shim.py`, `spark__hub`/`spark__link`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)

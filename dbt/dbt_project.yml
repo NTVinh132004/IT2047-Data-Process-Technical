@@ -24,6 +24,15 @@ models:
     staging:
       +schema: staging
       +materialized: view
+      # stg_*: bảng ghi lại mỗi lần chạy, không phải view. Spark chép nguyên cây biểu thức của view ở mỗi chỗ tham chiếu;
+      # macro sat incremental tham chiếu stage 5 lần, nên lập kế hoạch mất hơn 60 giây và làm tràn heap Thrift (R-30).
+      # Lưu thành bảng còn giúp hash chỉ tính một lần cho cả 10 model Raw Vault.
+      stg_orig:
+        +materialized: table
+      stg_perf:
+        +materialized: table
+      stg_perf_termination:
+        +materialized: table
     raw_vault:
       +schema: raw_vault
       +materialized: incremental

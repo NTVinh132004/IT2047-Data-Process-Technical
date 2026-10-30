@@ -74,7 +74,7 @@ Gold có thể xóa và dựng lại bất cứ lúc nào từ Silver; ngược 
 
 **Mặt phẳng điều khiển** quyết định nạp kỳ nào và ghi lại kết quả: `DAG Airflow` đọc `load_control` để lấy kỳ tiếp theo, schema và luật kiểm tra nằm trong cấu hình, dòng lỗi bị chặn ở cổng chất lượng và đưa vào quarantine. Chạy lại cùng một kỳ cho kết quả không đổi: Bronze và quarantine ghi đè lát của kỳ, Raw Vault bỏ qua dòng đã có, Business Vault và Gold dựng lại từ Raw Vault. Thứ tự task trong DAG: nạp Bronze (PySpark), cổng chất lượng (PySpark), dbt build từng tầng kèm dbt test, xuất mart sang PostgreSQL.
 
-**Cố ý không dùng:** không tách Business Vault thành một lớp lưu trữ riêng; Raw Vault và Business Vault cùng nằm trong Silver. Staging là view dbt, không lưu bền. Kiến trúc này được chốt tạm thời và sẽ điều chỉnh nếu gặp vấn đề khi triển khai.
+**Cố ý không dùng:** không tách Business Vault thành một lớp lưu trữ riêng; Raw Vault và Business Vault cùng nằm trong Silver. Staging không lưu lịch sử: view ép kiểu, cộng bảng stage ghi đè mỗi lần chạy (R-30). Kiến trúc này được chốt tạm thời và sẽ điều chỉnh nếu gặp vấn đề khi triển khai.
 
 ## 4. Mô hình Data Vault
 
@@ -168,13 +168,13 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 **Giai đoạn 2: Raw Vault (tuần 3)**
 
-- [ ] Cổng chất lượng trước dbt (mồ côi, trùng, sai kiểu, ngoài miền); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control
-- [ ] Staging dbt: tính hash key, `hash_diff`
-- [ ] Model dbt incremental: Hub, Link (chỉ thêm mới), Satellite (chỉ thêm khi `hash_diff` đổi, bỏ qua dòng đã có)
-- [ ] dbt test sau mỗi tầng; DAG dừng khi test lỗi
-- [ ] Test idempotent tự động: chạy lại kỳ gần nhất và một kỳ cũ, số dòng không đổi (AC-02)
+- [x] Cổng chất lượng trước dbt (mồ côi, trùng, sai kiểu, ngoài miền); dòng lỗi vào quarantine, ghi số dòng lỗi vào load\_control
+- [x] Staging dbt: tính hash key, `hash_diff`
+- [x] Model dbt incremental: Hub, Link (chỉ thêm mới), Satellite (chỉ thêm khi `hash_diff` đổi, bỏ qua dòng đã có)
+- [x] dbt test sau mỗi tầng; DAG dừng khi test lỗi
+- [x] Test idempotent tự động: chạy lại kỳ gần nhất và một kỳ cũ, số dòng không đổi (AC-02)
 
-Đầu ra: Raw Vault nạp tăng dần qua toàn bộ các kỳ của bộ mẫu.
+Đầu ra: Raw Vault nạp tăng dần qua toàn bộ các kỳ của bộ mẫu. **Cổng C2 đạt 30/10/2026:** 29 kỳ, `hub_loan` 50.000 khoản vay, `sat_loan_balance` 1.934.614 dòng (mọi tháng), `sat_loan_delinquency` 109.997 dòng (5,7% số dòng perf nhờ `hash_diff`, P2), 0 dòng bị chặn trên bộ mẫu.
 
 **Giai đoạn 3: Business Vault và PIT (tuần 4)**
 
