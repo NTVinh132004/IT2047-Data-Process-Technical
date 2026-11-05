@@ -3,6 +3,7 @@
 # Khởi động: make up   (cần file .env, sao chép từ .env.example)
 
 x-airflow: &airflow
+  image: mortgage-datavault-airflow-scheduler:latest
   build: docker/airflow
   user: "${AIRFLOW_UID:-1000}:0"
   environment: &airflow-env
@@ -24,8 +25,9 @@ x-airflow: &airflow
     DBT_PROFILES_DIR: /opt/project/dbt
   volumes:
     - .:/opt/project
-    - ./data/raw:/data/raw:ro
-    - ./data/lake:/lake
+    - ${RAW_DATA_DIR:-./data/raw}:/data/raw:ro
+    - ${LAKE_DATA_DIR:-./data/lake}:/lake
+    - ${PIPELINE_CONFIG_FILE:-./conf/pipeline.yml}:/opt/project/conf/pipeline.yml:ro
     - airflow-logs:/opt/airflow/logs
   depends_on: &airflow-depends
     postgres: { condition: service_healthy }
@@ -40,7 +42,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports: ["127.0.0.1:5432:5432"]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "analytics"]
       interval: 5s
@@ -49,6 +51,7 @@ services:
   # disallow.incompatible.col.type.changes=false: Delta ghi schema bảng vào metastore sau mỗi lần ghi; metastore 3.1
   # mặc định từ chối và Delta in stack trace (không làm hỏng dữ liệu, nhưng che mất lỗi thật trong log)
   hive-metastore:
+    image: mortgage-datavault-hive-metastore:latest
     build: docker/hive
     environment:
       SERVICE_OPTS: >-
@@ -60,7 +63,7 @@ services:
         -Dfs.permissions.umask-mode=002
         -Dhive.metastore.disallow.incompatible.col.type.changes=false
     volumes:
-      - ./data/lake:/lake
+      - ${LAKE_DATA_DIR:-./data/lake}:/lake
     depends_on:
       postgres: { condition: service_healthy }
     healthcheck:
@@ -70,6 +73,7 @@ services:
     mem_limit: 1g
 
   spark-thrift:
+    image: mortgage-datavault-spark-thrift:latest
     build: docker/spark
     environment:
       SPARK_NO_DAEMONIZE: "true"
@@ -80,10 +84,10 @@ services:
       - --driver-memory=3g
     volumes:
       - ./docker/spark/conf:/opt/spark/conf-lakehouse:ro
-      - ./data/lake:/lake
+      - ${LAKE_DATA_DIR:-./data/lake}:/lake
     depends_on:
       hive-metastore: { condition: service_healthy }
-    ports: ["127.0.0.1:10000:10000", "127.0.0.1:4040:4040"]
+    ports: ["127.0.0.1:${THRIFT_PORT:-10000}:10000", "127.0.0.1:${SPARK_UI_PORT:-4040}:4040"]
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/localhost/10000"]
       interval: 5s
@@ -103,7 +107,7 @@ services:
   airflow-apiserver:
     <<: *airflow
     command: api-server
-    ports: ["127.0.0.1:8080:8080"]
+    ports: ["127.0.0.1:${AIRFLOW_PORT:-8080}:8080"]
     depends_on:
       <<: *airflow-depends
       airflow-init: { condition: service_completed_successfully }

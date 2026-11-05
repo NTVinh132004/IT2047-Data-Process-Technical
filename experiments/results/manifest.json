@@ -1,0 +1,37 @@
+{
+  "tn1": {
+    "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+    "commit": "f9e5468",
+    "finished_at": "2026-11-05T04:53:02",
+    "measured_code_digest": "d17a5dc054df193e5873872cb32c41476b127fae2980547d65cf7549f55708f2",
+    "restamped": "05/11/2026: chỉ đổi hàm code_digest (bỏ file bị gitignore để clone sạch ra cùng digest); code đo không đổi, đã xác nhận digest cũ khớp trước khi sửa. R-38"
+  },
+  "tn4": {
+    "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+    "commit": "f9e5468",
+    "finished_at": "2026-11-05T04:55:16",
+    "measured_code_digest": "d17a5dc054df193e5873872cb32c41476b127fae2980547d65cf7549f55708f2",
+    "restamped": "05/11/2026: chỉ đổi hàm code_digest (bỏ file bị gitignore để clone sạch ra cùng digest); code đo không đổi, đã xác nhận digest cũ khớp trước khi sửa. R-38"
+  },
+  "tn7": {
+    "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+    "commit": "f9e5468",
+    "finished_at": "2026-11-05T04:58:00",
+    "measured_code_digest": "d17a5dc054df193e5873872cb32c41476b127fae2980547d65cf7549f55708f2",
+    "restamped": "05/11/2026: chỉ đổi hàm code_digest (bỏ file bị gitignore để clone sạch ra cùng digest); code đo không đổi, đã xác nhận digest cũ khớp trước khi sửa. R-38"
+  },
+  "tn6": {
+    "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+    "commit": "f9e5468",
+    "finished_at": "2026-11-05T05:03:22",
+    "measured_code_digest": "d17a5dc054df193e5873872cb32c41476b127fae2980547d65cf7549f55708f2",
+    "restamped": "05/11/2026: chỉ đổi hàm code_digest (bỏ file bị gitignore để clone sạch ra cùng digest); code đo không đổi, đã xác nhận digest cũ khớp trước khi sửa. R-38"
+  },
+  "tn2": {
+    "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+    "commit": "f9e5468",
+    "finished_at": "2026-11-05T05:43:58",
+    "measured_code_digest": "d17a5dc054df193e5873872cb32c41476b127fae2980547d65cf7549f55708f2",
+    "restamped": "05/11/2026: chỉ đổi hàm code_digest (bỏ file bị gitignore để clone sạch ra cùng digest); code đo không đổi, đã xác nhận digest cũ khớp trước khi sửa. R-38"
+  }
+}

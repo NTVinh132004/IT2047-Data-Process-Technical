@@ -1,0 +1,20 @@
+# Chỉ áp dụng qua scripts/historical.sh; sample giữ cấu hình hiện tại.
+services:
+  airflow-scheduler:
+    environment:
+      DBT_THREADS: "1"
+  spark-thrift:
+    # Heap 2 GiB trong container 4 GiB để còn chỗ cho native/direct memory.
+    # Hai task Spark và một model dbt cùng lúc; không tăng tổng ngân sách WSL.
+    command:
+      - /opt/spark/sbin/start-thriftserver.sh
+      - --master=local[2]
+      - --driver-memory=2g
+      - --conf=spark.sql.shuffle.partitions=64
+      - --conf=spark.sql.adaptive.coalescePartitions.enabled=false
+      - --conf=spark.sql.ui.retainedExecutions=5
+      - --conf=spark.ui.retainedJobs=20
+      - --conf=spark.ui.retainedStages=20
+      - --conf=spark.ui.retainedTasks=2000
+      - --conf=spark.sql.thriftServer.ui.retainedStatements=10
+    mem_limit: 4g

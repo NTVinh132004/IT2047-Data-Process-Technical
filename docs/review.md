@@ -278,3 +278,113 @@ flowchart LR
     BV --> Gold
     Gold --> JDBC["JDBC → export_stage"] --> PG["Transaction → serving"] --> Notebook["Notebook: 5 câu hỏi"]
 ```
+
+## Chuẩn bị vận hành historical (30/10/2026)
+
+Thêm profile vận hành riêng, không đổi mô hình, FR/AC hoặc tiêu chí cổng:
+`conf/environments/historical.yml`, project Compose `mortgage-datavault-historical`,
+lake `data/lake-historical`, PostgreSQL volume riêng, cổng UI 8081/PG 5433.
+Nguồn vẫn chỉ đọc; sample giữ nguyên. Batch historical khởi đầu bằng 1.
+Kiểm tự động cấu hình mount/volume/cổng tại `tests/unit/test_historical.py`.
+Preflight nguồn và pilot không được coi là C5 đạt. Hướng dẫn: `chay-historical.md`.
+
+### Khắc phục OOM khi nạp historical (30/10/2026)
+
+Lần nạp toàn bộ dừng ở Raw Vault 2019Q2: Spark Thrift Server báo
+`OOMKilled=true`, exit 137, kết thúc 17:07 UTC. Ingest và quality đã SUCCESS
+29/29 quý; Raw Vault thử hết ba lần, lần sau lỗi kết nối vì server đã chết.
+Không kết luận OOM heap Java: đây là kill ở giới hạn RAM container 4 GiB;
+heap 3 GiB chưa tính native/direct memory và các thành phần khác.
+
+Áp dụng riêng historical qua `docker-compose.historical.yml`: dbt 1 thread
+(sample vẫn 2), local[2] thay local[4], heap 2 GiB trong container 4 GiB,
+shuffle 64 thay 16, tắt AQE coalescing để không gom các partition trở lại,
+giảm lịch sử Spark UI. Đây là cấu hình thử để giảm bộ nhớ đồng thời và chừa
+khoảng trống ngoài heap, chưa phải bằng chứng toàn bộ dữ liệu chạy đạt.
+Không thay model/hash, tiêu chí cổng, kiến trúc hay dữ liệu sample.
+
+Sau khi khởi động lại scheduler/Thrift, gửi request **không force** cho 2019Q2,
+`max_attempts=1`, rồi trigger `layer_raw_vault`. Giữ ba bản ghi lỗi; request mới
+bắt đầu ngân sách thử mới, không xóa lịch sử và không nạp lại tầng đã SUCCESS.
+Kiểm unit 35/35 đạt; cần kiểm chứng thực tế 2019Q2 và RAM trước khi kết luận.
+
+Cơ sở cấu hình: [Spark 3.5.5 configuration](https://downloads.apache.org/spark/docs/3.5.5/configuration.html)
+(phân biệt driver heap với non-heap; memoryOverhead không quản lý local mode).
+Thay đổi operational này không nới C5; kết quả đo lưu dưới `data/reports/historical/`.
+
+Kết quả kiểm chứng sau điều chỉnh: Raw Vault 2019Q2 **SUCCESS** sau 283,4 giây,
+`PASS=100 WARN=0 ERROR=0 SKIP=0`, Airflow chuyển sang 2019Q3.
+Spark REST xác nhận heap 2g, master local[2], shuffle 64, AQE coalescing false,
+retained executions 5. Cgroup container mới ghi `oom=0`, `oom_kill=0` tại
+checkpoint sau 2019Q2. `memory.peak` đã chạm 4 GiB và có memory reclaim;
+không coi bộ nhớ thấp ở một lần đọc Docker stats là peak toàn container.
+File cache chiếm một phần đáng kể; số đo chi tiết và kết quả dbt tại
+`data/reports/historical/oom-recovery.json` (không commit).
+Đây là phục hồi điểm lỗi đã quan sát, chưa chứng minh full 29 quý/C5 đạt.
+
+### Đối soát nguồn đầy đủ → Bronze/quality (30/10/2026)
+
+Đã chạy `scripts.audit_historical_bronze`: đọc lại đủ 8 TXT và kiểm SHA-256
+với manifest; đếm perf từng quý, xác định tháng xuất hiện đầu tiên độc lập
+để cắt lát orig. So với số dòng trong snapshot Delta và kiểm bảo toàn
+`Bronze = clean + quarantine + dedup` theo từng quý: **PASS**, không lệch.
+Báo cáo có phiên bản Delta tại `data/reports/historical/bronze-quality-audit.json`.
+38 unit test đạt, có ca mất dòng, thiếu kỳ, quarantine/dedup được ghi nhận.
+Không dùng kết quả này thay AC-02/AC-05/AC-06 hoặc kết luận toàn bộ C5 đạt;
+Raw Vault và các tầng sau vẫn đang chạy qua Airflow.
+
+## R-37 — Chốt sample làm dữ liệu báo cáo (31/10/2026)
+
+Chủ dự án yêu cầu xóa dữ liệu chạy historical và dùng sample cho báo cáo. Đã xóa lake, TXT bản sao trong dự án, output, container và volume historical; giữ source gốc trên F và toàn bộ sample. Không thay FR/AC/kiến trúc hoặc nới C5 để hợp thức hóa kết quả. C0–C4 là bằng chứng MVP; C5–C7 vẫn chưa nghiệm thu.
+
+Đã thu thập lại bằng `scripts.collect_sample_report`: trạng thái 29 quý cùng CORR1 SUCCESS đủ 6 tầng, SHA-256 và số dòng nguồn, số dòng các snapshot Delta, publication/ba mart PostgreSQL, số dòng và tổng dư nợ Decimal từng tháng so TXT. Báo cáo kỹ thuật dùng kết quả sample để phân tích mô tả Q1–Q5; TN1/TN2/TN4/TN6 chưa có ba lần đo được ghi rõ là chưa hoàn tất. Không dùng thời gian rerun fixture C4 thay baseline lần nạp đầu.
+
+Bản báo cáo/slide được hỗ trợ bởi Codex và được đọc phản biện nội bộ AI; không gọi đó là phản biện độc lập bên ngoài. Artifact gốc và output nằm dưới `data/reports/sample-report/`, không commit dữ liệu.
+
+## R-38 — Phạm vi cuối là sample; C5 đo trên sample (05/11/2026)
+
+**Vấn đề.** FR-19, G4 và cổng C5 đòi bốn thực nghiệm (TN1, TN2, TN4, TN6) trên bộ đầy đủ 2019. R-37 đã xóa dữ liệu historical vì ổ C (chứa ổ ảo WSL) gần đầy, nhưng giữ nguyên C5. Kết quả là đồ án không thể đóng: báo cáo phải ghi `CHỜ_C5` mãi. Chủ dự án yêu cầu (05/11/2026) chốt sample làm phạm vi cuối, cho phép chạy sample để lấy số liệu báo cáo, và đặt trọng tâm báo cáo vào kỹ thuật xử lý dữ liệu từng tầng (TXT → landing → Bronze → ...).
+
+**Phương án đã xét.**
+
+1. Chạy lại bộ đầy đủ: cần 25–33 GB trên ổ C còn 38 GB, cộng thời gian; lần trước đã OOM ở Raw Vault. Chủ dự án không chọn.
+2. Hạ FR-19 thành mô tả kỹ thuật kèm số đo một lần: nhanh nhưng mất so sánh có đối chứng, trái quy tắc đo ba lần ở Kế hoạch mục 8.
+3. **Chọn:** giữ quy tắc đo, chuyển thực nghiệm sang sample. TN1 đổi biến quy mô sang tập con của sample theo khoản vay (25%, 50%, 100%), đúng tinh thần phương án "máy chỉ chạy được 1 quý" ở Kế hoạch mục 12. TN2, TN4, TN6 giữ nguyên câu hỏi. Thêm TN7 về kỹ thuật nạp, vì đó là trọng tâm báo cáo.
+
+**Thiết kế thực nghiệm.** Mọi thực nghiệm chạy trên stack Compose riêng (`scripts/experiment.sh`: project `mortgage-datavault-exp`, lake `data/lake-exp`, volume PostgreSQL riêng). Lake sample dùng cho số liệu báo cáo không bị đọc hay ghi. Mã ở `experiments/`, kết quả thô ở `experiments/results/*.csv` (chỉ thời gian, số dòng, dung lượng; không có dữ liệu khoản vay, EP-08).
+
+| TN | Câu hỏi | Biến | Đo | Kiểm đúng đi kèm |
+| --- | --- | --- | --- | --- |
+| TN1 | Thời gian tăng thế nào theo quy mô; tầng nào là điểm nghẽn | Tập con p25 ⊂ p50 ⊂ p100 (byte đầu SHA-256 mã khoản vay, `experiments/subset.py`) | `make run-all` từ stack và lake mới; thời gian bận từng tầng từ `control.layer_run` | AC-01, AC-05, AC-06 mỗi lần chạy; 29 kỳ đủ 6 tầng; 0 lần FAILED |
+| TN2 | Incremental có giữ thời gian ổn định khi lịch sử dài ra | Nạp kỳ thứ k incremental so với `--full-refresh` k kỳ; k = 4, 12, 20, 29 | Thời gian `dbt run` Raw Vault (`run_results.json`), số dòng, dung lượng | Số dòng từng bảng Raw Vault hai cách bằng nhau tại mọi mốc |
+| TN4 | PIT có đơn giản và nhanh hơn join as-of trực tiếp | Trạng thái 4 Satellite qua PIT (equi-join) so với `load_date <= mốc` + `ROW_NUMBER` | Thời gian; số dòng SQL, số join, số nút Exchange/Window trong `explain` | Checksum `xxhash64` hai cách bằng nhau ở cả hai kịch bản (mọi tháng; một tháng) |
+| TN6 | Tách Satellite theo tốc độ thay đổi tiết kiệm bao nhiêu | Ba Satellite perf tách so với một Satellite gộp (`dbt/models/experiments`, cùng macro `sat`) | Số dòng, dung lượng Delta, thời gian dựng | Cùng khóa và quy tắc nạp; chỉ khác `hash_diff` và payload |
+| TN7 | Landing có đáng chi phí; reader nào giữ được bằng chứng lỗi | (a) dựng landing; (b) lát Bronze đọc thẳng TXT so với landing phân vùng tháng; (c) text + split so với reader CSV; (d) dung lượng các tầng | Thời gian, số file đọc, `PartitionFilters` trong plan, `DESCRIBE DETAIL` | Số dòng lát hai cách bằng nhau; số dòng sai số trường phát hiện được trên file cài lỗi |
+
+Quy tắc đo theo Kế hoạch mục 8: mỗi cấu hình một lần khởi động bị loại, rồi ba lần đo; báo trung vị và min–max. Riêng TN1, mỗi lần đo dựng stack và lake mới, nên khởi động lạnh là một phần workload và không có lần loại. Không xóa được page cache của hệ điều hành trong WSL; ghi thành hạn chế. Cấu hình Spark giữ như mốc C4 (Thrift `local[4]`, driver 3 GiB, shuffle 16, dbt 2 luồng), không dùng cấu hình historical.
+
+**Căn cứ.** [Spark CSV data source](https://spark.apache.org/docs/3.5.6/sql-data-sources-csv.html) (chế độ PERMISSIVE và `columnNameOfCorruptRecord`; TN7 đo hành vi thực tế thay vì suy từ tài liệu, theo SP-06). [Delta RESTORE](https://docs.delta.io/latest/delta-utility.html#restore-a-delta-table-to-an-earlier-state) để lặp lại lần nạp incremental từ cùng trạng thái. [dbt incremental models](https://docs.getdbt.com/docs/build/incremental-models) cho `--full-refresh`. PIT theo [SF-GHOST]; tách Satellite theo DV-07 và [LINSTEDT].
+
+**Ảnh hưởng.** PRD lên 1.9: G4, FR-19, mục 6 và phi mục tiêu. Kế hoạch: giai đoạn 5, mục 8 thêm TN7, bảng cổng C5. Cổng mới `tests/gates/c5/` kiểm kết quả thô (đủ lần đo, kiểm đúng đi kèm đạt, biểu đồ có mặt, kết quả gắn với digest code thực nghiệm). C0–C4 không đổi tiêu chí nên không phải chạy lại vì R-38. C6, C7 giữ nguyên tiêu chí. Hạ tầng historical (`docker-compose.historical.yml`, `scripts/historical.sh`, preflight, pilot, audit) giữ trong repo làm hướng phát triển, không thuộc nghiệm thu.
+
+**Không đổi.** Kiến trúc, model Vault, hash, quy tắc `load_date`, FR khác, AC-01 đến AC-09. Không kết luận gì về hiệu năng bộ đầy đủ từ số đo sample; báo cáo ghi rõ hạn chế này.
+
+### Kết quả nghiệm thu R-38 (05/11/2026)
+
+`make experiments` chạy 02:46–05:44 trên stack thực nghiệm (khoảng 3 giờ), mọi bước trên cùng digest code `d17a5dc0…` (`experiments/results/manifest.json`), commit nền `f9e5468` cùng thay đổi chưa commit. `make gate N=5` đạt 7/7. Trung vị ba lần đo:
+
+| TN | Kết quả | Kiểm đúng |
+| --- | --- | --- |
+| TN1 | End-to-end p25/p50/p100: 687/784/834 giây; dữ liệu ×3,9 thì thời gian +21%. Ingest và quality gần như không đổi (29 job nối tiếp); Raw Vault 146–468 giây, đi theo số lô (2–6) chứ không theo dữ liệu; Business Vault, Gold, export tăng 1,5–1,8 lần | 9/9 lần chạy đạt AC-01, AC-05, AC-06, 29 kỳ × 6 tầng, 0 FAILED |
+| TN2 | Incremental một kỳ: 41,5/35,0/37,5/35,6 giây ở 4/12/20/29 kỳ; full refresh 32,0/54,7/66,3/72,0 giây. Full refresh nhanh hơn khi lịch sử ngắn (4 kỳ) | Số dòng từng bảng bằng nhau ở 4 mốc |
+| TN4 | Mọi mốc: PIT 3,54 giây, join as-of 16,97 giây (4,8 lần); một mốc: 2,12 và 2,48 giây. SQL 6 so với 35 dòng; 0 so với 4 nút Window | Cùng checksum |
+| TN6 | Số dòng thuộc tính quá hạn 109.998 (tách) so với 1.934.615 (gộp); dung lượng tổng tách 160,4 MiB, gộp 151,6 MiB; dựng 56,4 so với 20,1 giây; truy vấn lịch sử quá hạn 0,60 so với 1,28 giây | Cùng checksum lịch sử quá hạn |
+| TN7 | Lát Bronze: TXT 2,73–2,87 giây, landing 0,38–0,70 giây; dựng landing 8,93 giây; perf 211,4 MiB TXT → 49,2 MiB landing; text + split và CSV có cột lỗi cùng bắt 20/20 dòng sai trường, CSV mặc định 0/20, FAILFAST dừng cả lần đọc | Cùng số dòng ở 4 kỳ |
+
+Hai kết quả trái giả thuyết, giữ nguyên trong báo cáo: (1) tách Satellite không giảm dung lượng trên Parquet; lợi ích nằm ở truy vấn lịch sử từng nhóm thuộc tính; (2) reader CSV phát hiện được sai số trường khi cấu hình `columnNameOfCorruptRecord`, nên nhận định ở R-27 chỉ đúng với cấu hình mặc định. Quyết định text + split giữ nguyên vì giữ giá trị theo vị trí và gắn lý do lỗi theo luật; tốc độ hai cách tương đương.
+
+Khi chạy thử (EP-04, tập p25) phát hiện và sửa: lệnh `CLEAR CACHE` qua Thrift có description nhưng không có result set (giống DEV-06), `count()` trên CSV không phân tích cột nên không kích hoạt FAILFAST; bổ sung biến thể CSV mặc định và FAILFAST, và phép đo truy vấn lịch sử cho TN6. Kết quả chạy thử bị xóa, không dùng.
+
+Sau khi đo phát hiện hàm `code_digest` băm cả file bị gitignore (gói dbt của spike, wheel trong `docker/airflow/wheels/`), không có trong bản clone sạch, nên C5 sẽ trượt ở C6 dù code không đổi. Trước khi sửa đã xác nhận digest của cây hiện tại vẫn bằng digest lúc đo (`d17a5dc0…`); sau đó hàm chỉ băm file git nhìn thấy, và `manifest.json` ghi digest mới `a962deab…` kèm `measured_code_digest` cũ và lý do. Không đo lại vì code được đo không đổi.
+
+Rà C7 (05/11/2026): `tests/gates/results/c3-20261030-100553.json` (commit `59d9042`) chứa 3 mã khoản vay thật kèm điểm tín dụng trong mục `ac09.sample`; đã thay bằng `<đã ẩn, EP-08>` ở bản làm việc. Test C3 hiện tại không còn ghi mã khoản vay. Lịch sử git vẫn chứa bản cũ; repo chưa có remote, việc viết lại lịch sử để xóa hẳn do chủ repo quyết định. Unit test mới của R-38 đổi sang mã giả lập. Bản clone C6 được chụp trước hai sửa đổi chỉ-test này.

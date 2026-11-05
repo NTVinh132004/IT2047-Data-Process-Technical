@@ -1,0 +1,12 @@
+{
+  "gate": "C4",
+  "commit": "46b54b8",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T13:38:38",
+  "run_all_seconds": 63.1,
+  "export_rollback": true,
+  "selected_checks": [
+    "test_export_publication_rolls_back_all_marts_on_error"
+  ],
+  "passed": false
+}

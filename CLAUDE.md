@@ -22,11 +22,11 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 - Lệnh `make` chưa cài đặt phải thoát với mã lỗi, không giả vờ chạy được.
 - Không commit dữ liệu (`data/` đã được ignore). Tài liệu viết bằng tiếng Việt, trừ `docs/principles.md` (tiếng Anh theo yêu cầu chủ repo).
 
-## Trạng thái (30/10/2026)
+## Trạng thái (05/11/2026)
 
-Cổng C0–C4 đạt (30/10/2026): 69/69 kiểm tra trên clone với lake/volume mới, gồm C4 10/10 và 30 unit test. Pipeline bộ mẫu đủ sáu tầng 1.056,6 giây; notebook 8 biểu đồ. Snapshot phase 4 được định danh, `source_digest` nằm trong `tests/gates/results/c4-20261030-150942.json` (R-36). Kế tiếp: giai đoạn 5 (C5), bộ đầy đủ và thực nghiệm.
+Cổng C0–C4 đạt (30/10/2026): 69/69 kiểm tra trên clone với lake/volume mới (R-36). R-37 (31/10): xóa dữ liệu historical do ổ C gần đầy. R-38 (05/11, PRD 1.9): phạm vi cuối là bộ mẫu; C5 gồm 5 thực nghiệm (TN1, TN2, TN4, TN6, TN7) trên bộ mẫu và tập con 25/50/100%, chạy trên stack riêng. Kế tiếp: chạy xong C5, viết lại báo cáo theo kỹ thuật xử lý từng tầng, C6 (`make verify-clean`), C7.
 - Tầng phải dựng lại vì đổi model: `python -m ingestion.control invalidate --layers raw_vault,business_vault --reason ...` rồi `make run-all`; không chạy lại tầng dưới
-- Phạm vi chốt theo R-25, không cắt thêm (quyết định 29/10/2026)
+- Phạm vi chốt theo R-25 và R-38, không cắt thêm; bộ đầy đủ là hướng phát triển (hạ tầng historical giữ trong repo, không nghiệm thu)
 
 ## Môi trường
 
@@ -40,3 +40,4 @@ Cổng C0–C4 đạt (30/10/2026): 69/69 kiểm tra trên clone với lake/volu
 - dbt chạy trong container scheduler: `/opt/dbt-venv/bin/dbt` (thư mục `/opt/project/dbt`). Model base_* sinh từ conf: `uv run python -m scripts.gen_dbt_staging`
 - Model incremental tham chiếu nguồn nhiều lần thì nguồn phải là bảng, không phải view (Spark chép cây biểu thức của view, R-30)
 - automate-dv trên dbt-spark cần lớp tương thích: shim sinh bằng `scripts/gen_automate_dv_shim.py`, `spark__hub`/`spark__link`/`spark__sat` viết tay vì Spark không có `QUALIFY`. Dùng Spark 3.5.5, không dùng 3.5.7 (R-26)
+- Thực nghiệm C5: `make experiments` (stack `mortgage-datavault-exp` qua `scripts/experiment.sh`, lake `data/lake-exp`, cổng 8082/5434/10002; khoảng 3–4 giờ; dừng stack sample trước). Kết quả thô `experiments/results/*.csv` gắn digest code (`manifest.json`); vẽ bằng `make experiment-charts`; kiểm bằng `make gate N=5`. Đổi code trong `experiments/`, `ingestion/`, `dbt/`, `conf/`, `docker/` là phải đo lại

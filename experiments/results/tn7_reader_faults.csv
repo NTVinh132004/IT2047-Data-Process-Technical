@@ -1,0 +1,5 @@
+measured_at,experiment,step,method,injected,detected,rows,lines,signal
+2026-11-05T04:57:59,TN7,reader_faults,text_split,20,20,2000,2000,"_field_count, _raw"
+2026-11-05T04:57:59,TN7,reader_faults,csv_reader,20,20,2000,2000,"_corrupt (cả dòng gốc, các trường vẫn được lấp/cắt)"
+2026-11-05T04:57:59,TN7,reader_faults,csv_default,20,0,2000,2000,không có
+2026-11-05T04:57:59,TN7,reader_faults,csv_failfast,20,,0,2000,dừng: Py4JJavaError

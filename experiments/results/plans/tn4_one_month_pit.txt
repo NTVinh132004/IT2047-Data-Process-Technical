@@ -1,0 +1,186 @@
+SELECT p.LOAN_HK, p.AS_OF_DATE, s0.current_upb, s1.delinquency_status, s2.zero_balance_code, s3.credit_score
+FROM business_vault.pit_loan_monthly AS p
+JOIN raw_vault.sat_loan_balance AS s0 ON s0.LOAN_HK = p.SAT_LOAN_BALANCE_PK AND s0.load_date = p.SAT_LOAN_BALANCE_LDTS
+JOIN raw_vault.sat_loan_delinquency AS s1 ON s1.LOAN_HK = p.SAT_LOAN_DELINQUENCY_PK AND s1.load_date = p.SAT_LOAN_DELINQUENCY_LDTS
+JOIN raw_vault.sat_loan_termination AS s2 ON s2.LOAN_HK = p.SAT_LOAN_TERMINATION_PK AND s2.load_date = p.SAT_LOAN_TERMINATION_LDTS
+JOIN raw_vault.sat_loan_origination AS s3 ON s3.LOAN_HK = p.SAT_LOAN_ORIGINATION_PK AND s3.load_date = p.SAT_LOAN_ORIGINATION_LDTS
+WHERE p.AS_OF_DATE = DATE'2020-07-01'
+
+== Physical Plan ==
+AdaptiveSparkPlan (29)
++- HashAggregate (28)
+   +- Exchange (27)
+      +- HashAggregate (26)
+         +- Project (25)
+            +- BroadcastHashJoin Inner BuildRight (24)
+               :- Project (20)
+               :  +- BroadcastHashJoin Inner BuildRight (19)
+               :     :- Project (15)
+               :     :  +- BroadcastHashJoin Inner BuildRight (14)
+               :     :     :- Project (10)
+               :     :     :  +- SortMergeJoin Inner (9)
+               :     :     :     :- Sort (4)
+               :     :     :     :  +- Exchange (3)
+               :     :     :     :     +- Filter (2)
+               :     :     :     :        +- Scan parquet spark_catalog.business_vault.pit_loan_monthly (1)
+               :     :     :     +- Sort (8)
+               :     :     :        +- Exchange (7)
+               :     :     :           +- Filter (6)
+               :     :     :              +- Scan parquet spark_catalog.raw_vault.sat_loan_balance (5)
+               :     :     +- BroadcastExchange (13)
+               :     :        +- Filter (12)
+               :     :           +- Scan parquet spark_catalog.raw_vault.sat_loan_delinquency (11)
+               :     +- BroadcastExchange (18)
+               :        +- Filter (17)
+               :           +- Scan parquet spark_catalog.raw_vault.sat_loan_termination (16)
+               +- BroadcastExchange (23)
+                  +- Filter (22)
+                     +- Scan parquet spark_catalog.raw_vault.sat_loan_origination (21)
+
+
+(1) Scan parquet spark_catalog.business_vault.pit_loan_monthly
+Output [10]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017]
+Batched: true
+Location: PreparedDeltaFileIndex [file:/lake/warehouse/business_vault.db/pit_loan_monthly]
+PushedFilters: [IsNotNull(AS_OF_DATE), EqualTo(AS_OF_DATE,2020-07-01), IsNotNull(SAT_LOAN_BALANCE_PK), IsNotNull(SAT_LOAN_BALANCE_LDTS), IsNotNull(SAT_LOAN_DELINQUENCY_PK), IsNotNull(SAT_LOAN_DELINQUENCY_LDTS), IsNotNull(SAT_LOAN_TERMINATION_PK), IsNotNull(SAT_LOAN_TERMINATION_LDTS), IsNotNull(SAT_LOAN_ORIGINATION_PK), IsNotNull(SAT_LOAN_ORIGINATION_LDTS)]
+ReadSchema: struct<LOAN_HK:string,AS_OF_DATE:date,SAT_LOAN_ORIGINATION_PK:string,SAT_LOAN_ORIGINATION_LDTS:date,SAT_LOAN_BALANCE_PK:string,SAT_LOAN_BALANCE_LDTS:date,SAT_LOAN_DELINQUENCY_PK:string,SAT_LOAN_DELINQUENCY_LDTS:date,SAT_LOAN_TERMINATION_PK:string,SAT_LOAN_TERMINATION_LDTS:date>
+
+(2) Filter
+Input [10]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017]
+Condition : (((((((((isnotnull(AS_OF_DATE#8007) AND (AS_OF_DATE#8007 = 2020-07-01)) AND isnotnull(SAT_LOAN_BALANCE_PK#8012)) AND isnotnull(SAT_LOAN_BALANCE_LDTS#8013)) AND isnotnull(SAT_LOAN_DELINQUENCY_PK#8014)) AND isnotnull(SAT_LOAN_DELINQUENCY_LDTS#8015)) AND isnotnull(SAT_LOAN_TERMINATION_PK#8016)) AND isnotnull(SAT_LOAN_TERMINATION_LDTS#8017)) AND isnotnull(SAT_LOAN_ORIGINATION_PK#8008)) AND isnotnull(SAT_LOAN_ORIGINATION_LDTS#8009))
+
+(3) Exchange
+Input [10]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017]
+Arguments: hashpartitioning(SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, 16), ENSURE_REQUIREMENTS, [plan_id=15714]
+
+(4) Sort
+Input [10]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017]
+Arguments: [SAT_LOAN_BALANCE_PK#8012 ASC NULLS FIRST, SAT_LOAN_BALANCE_LDTS#8013 ASC NULLS FIRST], false, 0
+
+(5) Scan parquet spark_catalog.raw_vault.sat_loan_balance
+Output [3]: [LOAN_HK#8018, current_upb#8021, load_date#8030]
+Batched: true
+Location: PreparedDeltaFileIndex [file:/lake/warehouse/raw_vault.db/sat_loan_balance]
+PushedFilters: [IsNotNull(LOAN_HK), IsNotNull(load_date)]
+ReadSchema: struct<LOAN_HK:string,current_upb:decimal(20,4),load_date:date>
+
+(6) Filter
+Input [3]: [LOAN_HK#8018, current_upb#8021, load_date#8030]
+Condition : (isnotnull(LOAN_HK#8018) AND isnotnull(load_date#8030))
+
+(7) Exchange
+Input [3]: [LOAN_HK#8018, current_upb#8021, load_date#8030]
+Arguments: hashpartitioning(LOAN_HK#8018, load_date#8030, 16), ENSURE_REQUIREMENTS, [plan_id=15715]
+
+(8) Sort
+Input [3]: [LOAN_HK#8018, current_upb#8021, load_date#8030]
+Arguments: [LOAN_HK#8018 ASC NULLS FIRST, load_date#8030 ASC NULLS FIRST], false, 0
+
+(9) SortMergeJoin
+Left keys [2]: [SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013]
+Right keys [2]: [LOAN_HK#8018, load_date#8030]
+Join type: Inner
+Join condition: None
+
+(10) Project
+Output [9]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017, current_upb#8021]
+Input [13]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_BALANCE_PK#8012, SAT_LOAN_BALANCE_LDTS#8013, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017, LOAN_HK#8018, current_upb#8021, load_date#8030]
+
+(11) Scan parquet spark_catalog.raw_vault.sat_loan_delinquency
+Output [3]: [LOAN_HK#8032, delinquency_status#8035, load_date#8042]
+Batched: true
+Location: PreparedDeltaFileIndex [file:/lake/warehouse/raw_vault.db/sat_loan_delinquency]
+PushedFilters: [IsNotNull(LOAN_HK), IsNotNull(load_date)]
+ReadSchema: struct<LOAN_HK:string,delinquency_status:string,load_date:date>
+
+(12) Filter
+Input [3]: [LOAN_HK#8032, delinquency_status#8035, load_date#8042]
+Condition : (isnotnull(LOAN_HK#8032) AND isnotnull(load_date#8042))
+
+(13) BroadcastExchange
+Input [3]: [LOAN_HK#8032, delinquency_status#8035, load_date#8042]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false], input[2, date, false]),false), [plan_id=15721]
+
+(14) BroadcastHashJoin
+Left keys [2]: [SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015]
+Right keys [2]: [LOAN_HK#8032, load_date#8042]
+Join type: Inner
+Join condition: None
+
+(15) Project
+Output [8]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017, current_upb#8021, delinquency_status#8035]
+Input [12]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_DELINQUENCY_PK#8014, SAT_LOAN_DELINQUENCY_LDTS#8015, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017, current_upb#8021, LOAN_HK#8032, delinquency_status#8035, load_date#8042]
+
+(16) Scan parquet spark_catalog.raw_vault.sat_loan_termination
+Output [3]: [LOAN_HK#8044, zero_balance_code#8047, load_date#8063]
+Batched: true
+Location: PreparedDeltaFileIndex [file:/lake/warehouse/raw_vault.db/sat_loan_termination]
+PushedFilters: [IsNotNull(LOAN_HK), IsNotNull(load_date)]
+ReadSchema: struct<LOAN_HK:string,zero_balance_code:string,load_date:date>
+
+(17) Filter
+Input [3]: [LOAN_HK#8044, zero_balance_code#8047, load_date#8063]
+Condition : (isnotnull(LOAN_HK#8044) AND isnotnull(load_date#8063))
+
+(18) BroadcastExchange
+Input [3]: [LOAN_HK#8044, zero_balance_code#8047, load_date#8063]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false], input[2, date, false]),false), [plan_id=15725]
+
+(19) BroadcastHashJoin
+Left keys [2]: [SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017]
+Right keys [2]: [LOAN_HK#8044, load_date#8063]
+Join type: Inner
+Join condition: None
+
+(20) Project
+Output [7]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, current_upb#8021, delinquency_status#8035, zero_balance_code#8047]
+Input [11]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, SAT_LOAN_TERMINATION_PK#8016, SAT_LOAN_TERMINATION_LDTS#8017, current_upb#8021, delinquency_status#8035, LOAN_HK#8044, zero_balance_code#8047, load_date#8063]
+
+(21) Scan parquet spark_catalog.raw_vault.sat_loan_origination
+Output [3]: [LOAN_HK#8065, credit_score#8067, load_date#8083]
+Batched: true
+Location: PreparedDeltaFileIndex [file:/lake/warehouse/raw_vault.db/sat_loan_origination]
+PushedFilters: [IsNotNull(LOAN_HK), IsNotNull(load_date)]
+ReadSchema: struct<LOAN_HK:string,credit_score:int,load_date:date>
+
+(22) Filter
+Input [3]: [LOAN_HK#8065, credit_score#8067, load_date#8083]
+Condition : (isnotnull(LOAN_HK#8065) AND isnotnull(load_date#8083))
+
+(23) BroadcastExchange
+Input [3]: [LOAN_HK#8065, credit_score#8067, load_date#8083]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false], input[2, date, false]),false), [plan_id=15729]
+
+(24) BroadcastHashJoin
+Left keys [2]: [SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009]
+Right keys [2]: [LOAN_HK#8065, load_date#8083]
+Join type: Inner
+Join condition: None
+
+(25) Project
+Output [6]: [LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067]
+Input [10]: [LOAN_HK#8006, AS_OF_DATE#8007, SAT_LOAN_ORIGINATION_PK#8008, SAT_LOAN_ORIGINATION_LDTS#8009, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, LOAN_HK#8065, credit_score#8067, load_date#8083]
+
+(26) HashAggregate
+Input [6]: [LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067]
+Keys: []
+Functions [2]: [partial_count(1), partial_sum(cast(xxhash64(LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067, 42) as decimal(38,0)))]
+Aggregate Attributes [3]: [count#8479L, sum#8480, isEmpty#8481]
+Results [3]: [count#8482L, sum#8483, isEmpty#8484]
+
+(27) Exchange
+Input [3]: [count#8482L, sum#8483, isEmpty#8484]
+Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=15734]
+
+(28) HashAggregate
+Input [3]: [count#8482L, sum#8483, isEmpty#8484]
+Keys: []
+Functions [2]: [count(1), sum(cast(xxhash64(LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067, 42) as decimal(38,0)))]
+Aggregate Attributes [2]: [count(1)#8085L, sum(cast(xxhash64(LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067, 42) as decimal(38,0)))#8091]
+Results [2]: [count(1)#8085L AS n#8004L, sum(cast(xxhash64(LOAN_HK#8006, AS_OF_DATE#8007, current_upb#8021, delinquency_status#8035, zero_balance_code#8047, credit_score#8067, 42) as decimal(38,0)))#8091 AS h#8005]
+
+(29) AdaptiveSparkPlan
+Output [2]: [n#8004L, h#8005]
+Arguments: isFinalPlan=false
+
+

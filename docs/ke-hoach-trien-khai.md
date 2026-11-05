@@ -205,8 +205,11 @@ Thiết kế C4: `Review.md` R-36. Gold gồm bảng snapshot tái dựng từ V
 
 **Giai đoạn 5: Chạy thật và thực nghiệm (tuần 6)**
 
-- [ ] Tải bộ đầy đủ 2019 (toàn năm hoặc 1–2 quý tùy dung lượng đã kiểm ở tuần 1)
-- [ ] Chạy pipeline, chạy 4 thực nghiệm bắt buộc ở mục 8
+- [ ] ~~Tải và chạy bộ đầy đủ 2019~~: đã thử rồi dừng (R-37, OOM ở Raw Vault được khắc phục nhưng ổ C không đủ chỗ); từ R-38 bộ đầy đủ là phi mục tiêu, hạ tầng historical giữ làm hướng phát triển
+- [x] Chạy 5 thực nghiệm bắt buộc ở mục 8 trên bộ mẫu và tập con (`make experiments`, stack riêng `scripts/experiment.sh`, R-38)
+- [x] Biểu đồ và giải thích từng thực nghiệm; `make gate N=5`
+
+**Cổng C5 đạt 05/11/2026:** 7/7 kiểm tra; 5 thực nghiệm × 3 lần đo, mọi phép kiểm đúng đi kèm đạt, kết quả gắn digest code. Số liệu: `Review.md` R-38 (kết quả), báo cáo chương 5.
 
 **Giai đoạn 6: Phân tích và code freeze (tuần 7)**
 
@@ -229,7 +232,7 @@ Cổng chỉ đạt khi mọi kiểm thử trong cổng đạt. Kiểm thử t�
 | C2 | 2 (tuần 3) | Unit test hash (FR-06). AC-06 ở mọi kỳ; không dòng vi phạm hard rule nào vào Raw Vault; cổng chất lượng không áp soft rule (FR-07, R-35). AC-03. AC-02 với kỳ gần nhất và một kỳ cũ. 100% dòng Raw Vault có `load_date`, `record_source`. dbt test Raw Vault đạt 100%; một test cố ý sai làm DAG dừng (FR-22) | `make gate N=2` |
 | C3 | 3 (tuần 4) | FR-12: 20 khoản vay khớp cách tính độc lập bằng Python thuần trên file TXT (R-31). PIT và Business Vault chỉ đọc Raw Vault (R-33). AC-04 trên 100 khoản vay ngẫu nhiên (seed cố định). AC-09. Báo cáo vi phạm soft rule `quality_violation` đọc được, logic từng luật đạt dbt unit test trên dữ liệu giả lập (FR-07, R-35). dbt test Business Vault đạt 100% | `make gate N=3` |
 | C4 | 4 (tuần 5, MVP) | AC-05, AC-07, AC-08. Số dòng mart trong PostgreSQL bằng số dòng mart trên Delta (FR-17). Mọi test C1–C3 đạt khi chạy lại trên môi trường sạch (`docker compose down -v`). Thời gian end-to-end được ghi lại và so với mục tiêu tạm 45 phút; không đạt thì ghi điều chỉnh vào lịch sử thay đổi của PRD, không chặn cổng | `make test`; chạy lại theo README từ bản clone sạch |
-| C5 | 5 (tuần 6) | Trên bộ đầy đủ: AC-01, AC-02, AC-05, AC-06 đạt. 4 thực nghiệm bắt buộc, mỗi cấu hình 3 lần, có CSV thô, biểu đồ, ảnh Spark UI hoặc `explain()` | `make gate N=5` |
+| C5 | 5 (tuần 6) | Từ R-38, trên bộ mẫu: 5 thực nghiệm bắt buộc, mỗi cấu hình 3 lần đo, có CSV thô, biểu đồ, `explain()`. TN1: mọi lần chạy ở cả ba tập con đạt AC-01, AC-05, AC-06, đủ 29 kỳ × 6 tầng, 0 lần FAILED. TN2: số dòng Raw Vault incremental bằng full refresh ở mọi mốc. TN4: checksum PIT bằng join trực tiếp. TN7: số dòng lát Bronze hai cách bằng nhau, text + split phát hiện đủ dòng cài lỗi. Kết quả gắn với digest code thực nghiệm | `make gate N=5` |
 | C6 | 6 (tuần 7, code freeze) | `make test` xanh trên commit freeze. Mỗi thực nghiệm có phần giải thích. Dashboard hoặc notebook trả lời đủ 5 câu hỏi. Chạy lại theo README từ bản clone sạch, sau `docker compose down -v` | `make test`; review nhóm |
 | C7 | 7 (tuần 8) | Đủ hồ sơ ở mục 13. `git ls-files` không chứa dữ liệu Freddie Mac. Slide và video chỉ có số tổng hợp | Checklist trước khi nộp |
 
@@ -254,16 +257,19 @@ Các thực nghiệm được chọn để trả lời câu hỏi riêng của D
 
 | # | Thực nghiệm | Biến thay đổi | Đo | Giả thuyết |
 | --- | --- | --- | --- | --- |
-| 1 | Mở rộng quy mô | Bộ mẫu, 1 quý, 2 quý, 4 quý đầy đủ | Thời gian toàn pipeline, thời gian từng tầng | Thời gian tăng gần tuyến tính theo số dòng; tầng nào tăng nhanh hơn tuyến tính là điểm nghẽn (thường là `MERGE` Satellite) |
+| 1 | Mở rộng quy mô | Tập con 25%, 50%, 100% khoản vay của bộ mẫu (R-38; trước đó: bộ mẫu, 1, 2, 4 quý đầy đủ) | Thời gian toàn pipeline, thời gian từng tầng | Thời gian tăng gần tuyến tính theo số dòng; tầng nào tăng nhanh hơn tuyến tính là điểm nghẽn (thường là `MERGE` Satellite). Trên bộ mẫu, chi phí cố định có thể lấn át |
 | 2 | Nạp Satellite: incremental (`MERGE`) vs `dbt run --full-refresh` | Cách nạp, số kỳ đã có | Thời gian mỗi kỳ, dung lượng | Tăng dần gần như không đổi theo kỳ; ghi đè chậm dần khi lịch sử dài |
 | 3 | Partition Satellite theo kỳ báo cáo (đã cắt, R-25) | Có/không partition | Thời gian truy vấn 1 tháng, `PartitionFilters` | Partition pruning giảm mạnh dữ liệu đọc |
 | 4 | PIT table vs join trực tiếp Satellite | Cách truy vấn trạng thái tại thời điểm | Thời gian, độ phức tạp câu lệnh | PIT nhanh và đơn giản hơn rõ rệt |
 | 5 | Broadcast join Hub nhỏ (đã cắt, R-25) | Bật/tắt broadcast với Hub seller, servicer | Thời gian, lượng shuffle | Broadcast tránh shuffle |
-| 6 | Tách Satellite theo tốc độ thay đổi | 1 Satellite gộp vs 2 Satellite tách | Số dòng, dung lượng | Tách giúp Satellite ít đổi nhỏ hơn nhiều |
+| 6 | Tách Satellite theo tốc độ thay đổi | 1 Satellite perf gộp vs 3 Satellite perf tách | Số dòng, dung lượng, thời gian dựng | Tách giúp Satellite ít đổi nhỏ hơn nhiều |
+| 7 | Kỹ thuật nạp TXT → landing → Bronze (thêm ở R-38) | Lát Bronze đọc thẳng TXT vs landing Delta phân vùng tháng; reader text + split vs CSV; chi phí dựng landing | Thời gian, số file đọc, `PartitionFilters`, dung lượng từng tầng, số dòng lỗi phát hiện | Landing trả chi phí một lần, mỗi kỳ chỉ đọc 3 thư mục tháng; reader CSV làm mất bằng chứng sai số trường (R-27) |
 
 **Quy tắc đo:** bấm giờ quanh action (`count()`, `write`) hoặc lấy thời gian model từ `run_results.json` của dbt; xóa cache Spark giữa các lần, bỏ lần chạy khởi động đầu tiên; ghi lại cấu hình máy, phiên bản, `spark.driver.memory`; lưu kết quả thô ra CSV, báo cáo trung vị và min–max của 3 lần; kèm ảnh Spark UI hoặc `explain()` làm bằng chứng.
 
-Thực nghiệm 2, 4 và 6 là điểm khác biệt chính, vì chúng chứng minh bằng số liệu giá trị của các quyết định thiết kế Data Vault.
+Thực nghiệm 2, 4 và 6 là điểm khác biệt chính, vì chúng chứng minh bằng số liệu giá trị của các quyết định thiết kế Data Vault. Thực nghiệm 7 chứng minh các quyết định kỹ thuật nạp (R-27, R-28).
+
+**Cách chạy (R-38):** `make experiments` dựng stack riêng (`scripts/experiment.sh`, project `mortgage-datavault-exp`, lake `data/lake-exp`) rồi chạy TN1, TN4, TN7, TN6, TN2 theo thứ tự; lake sample báo cáo không bị đụng. TN1 dựng stack và lake mới ở mỗi lần đo nên không có lần khởi động bị loại. Kết quả thô ở `experiments/results/`, biểu đồ sinh bằng `make experiment-charts`. Mỗi thực nghiệm có phép kiểm đúng đi kèm (R-38), kiểm ở `make gate N=5`.
 
 ## 9. Phân công nhóm
 
@@ -380,6 +386,8 @@ Bộ hồ sơ nộp gồm mã nguồn chạy được bằng một lệnh (khôn
 - [ ] Báo cáo, slide 15–20 trang, video demo 5–7 phút
 - [ ] Sơ đồ Data Vault, từ điển dữ liệu, kết quả thực nghiệm
 
+Báo cáo: [Báo cáo đồ án](bao-cao-do-an.md), số liệu từ bộ mẫu (R-38).
+
 **Dàn ý báo cáo:**
 
 1. Bài toán và mục tiêu
@@ -408,3 +416,11 @@ Bộ hồ sơ nộp gồm mã nguồn chạy được bằng một lệnh (khôn
 - [FAQ](https://www.freddiemac.com/fmac-resources/research/pdf/faq.pdf)
 - [Trang tải SFLLD trên Clarity](https://claritydownload.fmapps.freddiemac.com/CRT/#/sflld)
 - [AutomateDV – Worked example (tham khảo mẫu Data Vault)](https://automate-dv.readthedocs.io/en/latest/worked_example/)
+
+Hướng phát triển, chạy bộ đầy đủ: [profile historical, preflight và pilot](chay-historical.md). Không thuộc nghiệm thu (R-38).
+
+### Cập nhật phạm vi báo cáo
+
+31/10/2026 (R-37): báo cáo/slide sử dụng sample. Đối soát mới và biểu đồ được sinh bằng `make report-sample`.
+
+05/11/2026 (R-38): phạm vi cuối là sample; thực nghiệm và cổng C5 chạy trên sample và tập con. Không giả định hiệu năng bộ đầy đủ từ sample.

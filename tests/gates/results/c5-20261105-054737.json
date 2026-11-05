@@ -1,0 +1,32 @@
+{
+  "gate": "C5",
+  "commit": "f9e5468",
+  "uncommitted_changes": true,
+  "ran_at": "2026-11-05T05:47:37",
+  "code_digest": "a962deab4b0d0e889458d92a00d4225ce382b5eaa6510f7321c1e20ea4257558",
+  "digest_ok": true,
+  "tn1": {
+    "p25": 687.3,
+    "p50": 783.7,
+    "p100": 834.1
+  },
+  "tn1_ok": true,
+  "tn2_ok": true,
+  "tn4_ok": true,
+  "tn6_ok": true,
+  "tn7": {
+    "csv_detected": "20",
+    "injected": "20"
+  },
+  "tn7_ok": true,
+  "charts": [
+    "tn1_scale.png",
+    "tn2_incremental.png",
+    "tn4_pit.png",
+    "tn6_split.png",
+    "tn7_ingestion.png",
+    "tn7_storage.png"
+  ],
+  "charts_ok": true,
+  "passed": true
+}

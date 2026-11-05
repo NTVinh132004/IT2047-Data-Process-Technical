@@ -1,0 +1,45 @@
+{
+  "gate": "C4",
+  "commit": "46b54b8",
+  "uncommitted_changes": true,
+  "ran_at": "2026-10-30T13:37:06",
+  "run_all_seconds": 64.1,
+  "ac05": {
+    "months": "87",
+    "wrong": "0"
+  },
+  "dbt_tests_pass": true,
+  "oracle": {
+    "months": 87,
+    "monthly_mismatches": 0,
+    "covid_outcomes": {
+      "RECOVERED": 1431,
+      "MODIFIED": 44,
+      "DEFAULTED": 524,
+      "PREPAID": 1191,
+      "DELINQUENT": 80,
+      "UNKNOWN": 40
+    }
+  },
+  "export_rows": {
+    "mart_delinquency": 1026938,
+    "mart_prepayment": 87,
+    "mart_covid_forbearance": 229
+  },
+  "ac08": {
+    "executed": true,
+    "figures": 8
+  },
+  "failed_gold_blocks_export": true,
+  "gold_dependencies": [
+    "mart_delinquency",
+    "dim_geography",
+    "mart_covid_forbearance",
+    "mart_prepayment",
+    "dim_loan",
+    "dim_servicer",
+    "dim_date",
+    "fact_loan_month",
+    "dim_seller"
+  ]
+}

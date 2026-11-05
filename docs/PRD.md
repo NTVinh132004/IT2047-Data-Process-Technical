@@ -1,8 +1,8 @@
 # PRD và kế hoạch: Lakehouse + Data Vault 2.0 trên Spark (Freddie Mac)
 
-Oct 8, 2026 · @Vĩnh · Phiên bản 1.8 (30/10/2026), xem lịch sử ở mục 8
+Oct 8, 2026 · @Vĩnh · Phiên bản 1.9 (05/11/2026), xem lịch sử ở mục 8
 
-Sản phẩm là một pipeline chạy bằng một lệnh, biến dữ liệu khoản vay Freddie Mac vintage 2019 thành kho Data Vault giữ đủ lịch sử và các bảng Gold trả lời 5 câu hỏi rủi ro tín dụng. MVP trên bộ mẫu đạt cuối tuần 5, nộp cuối tuần 8. Bộ tài liệu gồm ba file: PRD (file này), Kế hoạch triển khai và `Review.md`. Vòng review ngày 27/10/2026 sửa lỗi thiết kế khóa Satellite, các chỗ PRD và kế hoạch lệch nhau, và các tiêu chí nghiệm thu chưa kiểm được; chi tiết trong `Review.md`.
+Sản phẩm là một pipeline chạy bằng một lệnh, biến dữ liệu khoản vay Freddie Mac vintage 2019 thành kho Data Vault giữ đủ lịch sử và các bảng Gold trả lời 5 câu hỏi rủi ro tín dụng. MVP trên bộ mẫu đạt cuối tuần 5, nộp cuối tuần 8. Từ bản 1.9 (R-38), phạm vi nghiệm thu cuối là bộ mẫu: mọi số liệu báo cáo và thực nghiệm lấy từ bộ mẫu và các tập con của nó. Bộ tài liệu gồm ba file: PRD (file này), Kế hoạch triển khai và `Review.md`. Vòng review ngày 27/10/2026 sửa lỗi thiết kế khóa Satellite, các chỗ PRD và kế hoạch lệch nhau, và các tiêu chí nghiệm thu chưa kiểm được; chi tiết trong `Review.md`.
 
 ## 1. Vấn đề và bối cảnh
 
@@ -35,7 +35,7 @@ Năm mục tiêu, mỗi mục tiêu có một chỉ số kiểm được bằng 
 | G1 | Pipeline tăng dần chạy bằng một lệnh | `make run-all` kích hoạt DAG Airflow nạp hết các kỳ của bộ mẫu không can thiệp tay; chạy lại một kỳ không đổi số dòng ở bảng dữ liệu nào (`load_control` là nhật ký chạy nên được thêm dòng) |
 | G2 | Lịch sử và truy vết đầy đủ | 100% dòng Raw Vault có `load_date`, `record_source`; cả 4 phép đối soát ở mục 6 đạt (AC-01, AC-03, AC-05, AC-06) |
 | G3 | Trả lời 5 câu hỏi nghiệp vụ | Mỗi câu có ít nhất 1 bảng Gold và 1 biểu đồ |
-| G4 | Chứng minh thiết kế bằng số liệu | 4 thực nghiệm bắt buộc chạy trên bộ đầy đủ (hoặc phương án thay thế ở mục 12 Kế hoạch nếu máy không đủ), mỗi cấu hình 3 lần |
+| G4 | Chứng minh thiết kế bằng số liệu | 5 thực nghiệm bắt buộc (TN1, TN2, TN4, TN6, TN7) chạy trên bộ mẫu và các tập con của nó, mỗi cấu hình 3 lần (R-38) |
 | G5 | Chất lượng dữ liệu minh bạch | Báo cáo số dòng lỗi, mồ côi, trùng theo từng kỳ, lấy từ `load_control` |
 
 **Năm câu hỏi nghiệp vụ (G3):**
@@ -46,7 +46,7 @@ Năm mục tiêu, mỗi mục tiêu có một chỉ số kiểm được bằng 
 4. Bao nhiêu khoản vay được hoãn trả nợ, và sau đó hồi phục hay vỡ nợ?
 5. Tỷ lệ trả trước hạn (do tái cấp vốn) thay đổi theo thời gian ra sao?
 
-**Phi mục tiêu:** mô hình AI hoàn chỉnh, streaming, triển khai cloud, tích hợp FDIC, giao diện người dùng riêng. Các mục này ghi vào hướng phát triển.
+**Phi mục tiêu:** mô hình AI hoàn chỉnh, streaming, triển khai cloud, tích hợp FDIC, giao diện người dùng riêng, chạy bộ đầy đủ 2019 (R-38; hạ tầng historical giữ trong repo nhưng không nghiệm thu). Các mục này ghi vào hướng phát triển.
 
 ## 4. Yêu cầu chức năng
 
@@ -72,7 +72,7 @@ Năm mục tiêu, mỗi mục tiêu có một chỉ số kiểm được bằng 
 | FR-16 | 3 mart: `mart_delinquency` (tháng × bang × bên bán × nhóm điểm tín dụng, LTV, DTI), `mart_prepayment`, `mart_covid_forbearance` | Must | Trả lời được 5 câu hỏi ở mục 3 (câu 1–3 từ `mart_delinquency`) |
 | FR-17 | Task PySpark cuối DAG xuất các mart sang PostgreSQL qua JDBC (database `analytics`, tách khỏi database metadata của Hive Metastore) | Must | Notebook đọc được số mới từ PostgreSQL sau mỗi lần chạy |
 | FR-18 | Dashboard Metabase 4–6 biểu đồ | Đã cắt (R-25) | Thay bằng notebook (AC-08) |
-| FR-19 | Thực nghiệm 1, 2, 4, 6: quy mô, MERGE tăng dần, PIT, tách Satellite | Must | Kết quả thô CSV, biểu đồ, giải thích |
+| FR-19 | Thực nghiệm 1, 2, 4, 6, 7 trên bộ mẫu: quy mô (tập con 25/50/100% khoản vay), nạp tăng dần so với dựng lại, PIT, tách Satellite, kỹ thuật nạp TXT → landing → Bronze (R-38) | Must | Kết quả thô CSV, biểu đồ, giải thích; mỗi thực nghiệm có phép kiểm đúng đi kèm |
 | FR-20 | Thực nghiệm 3, 5: partition theo kỳ, broadcast join | Đã cắt (R-25) | Hướng phát triển |
 | FR-21 | Mỗi tầng một DAG Airflow chạy định kỳ (ingest, quality, raw_vault, business_vault, sau đó gold, export), đọc bảng điều khiển để chọn kỳ đủ điều kiện (tầng trên của kỳ đã xong và tầng mình của kỳ trước đã xong), giữ khóa trên dòng đang xử lý, retry có giới hạn, ghi trạng thái vào `control.layer_run` | Must | Giao diện Airflow hiện đủ DAG theo tầng; tầng lỗi của một kỳ được xử lý lại mà không trùng dữ liệu và không chặn việc theo dõi các tầng khác |
 | FR-22 | dbt test (unique, not\_null, relationships) trên Hub, Link, Satellite, fact, dim chạy sau mỗi tầng; test lỗi thì DAG dừng trước tầng sau | Must | dbt test đạt 100% trên bộ mẫu; một test cố ý sai làm DAG dừng |
@@ -118,7 +118,7 @@ MVP được nghiệm thu bằng 9 kiểm tra định lượng trên bộ mẫu 
 - [x] AC-08: Dashboard hoặc notebook thay thế trả lời đủ 5 câu hỏi nghiệp vụ
 - [x] AC-09: Sau đợt sửa (FR-14), Satellite khởi tạo có phiên bản mới cho đúng các khoản vay bị sửa và phiên bản cũ còn nguyên; PIT trước và sau `load_date` của đợt sửa trả về giá trị cũ và giá trị mới; bảng đối chứng ghi đè chỉ còn giá trị mới
 
-Thực nghiệm trên bộ đầy đủ không thuộc MVP; chúng được nghiệm thu ở cổng C5 (tuần 6) và chốt ở cổng code freeze C6 (tuần 7).
+Thực nghiệm không thuộc MVP; chúng chạy trên bộ mẫu và các tập con (R-38), được nghiệm thu ở cổng C5 (tuần 6) và chốt ở cổng code freeze C6 (tuần 7). Số đo trên bộ mẫu không được dùng để kết luận hiệu năng bộ đầy đủ.
 
 ## 7. Giả định, phụ thuộc và câu hỏi mở
 
@@ -168,3 +168,6 @@ PRD là tài liệu sống: được sửa khi spike, cổng kiểm thử hoặc
 | 1.7 | 30/10/2026 | FR-07: soft rule chuyển từ cổng chất lượng sang view Business Vault `quality_violation` (đọc Raw Vault), kiểm bằng dbt unit test; staging giữ mã thiếu thô, zero key cho seller/servicer thiếu. FR-01, FR-21: tầng Raw Vault và Business Vault xử lý một lô các kỳ liên tiếp trong một lần dbt build. Tiêu chí C2 về báo cáo vi phạm chuyển sang C3 (báo cáo nằm ở Business Vault). Dựng lại Raw Vault và Business Vault, không chạy lại landing, Bronze, cổng chất lượng | `Review.md` R-34, R-35 |
 | 1.8 | 30/10/2026 | Làm rõ triển khai C4: Gold giữ phiên bản chiều khởi tạo theo PIT; Gold/export gom kỳ sẵn sàng, dựng snapshot từ Vault; JDBC công bố 3 mart theo transaction; notebook và kiểm thử clone sạch. Không đổi FR/AC hay nới cổng | `Review.md` R-36 |
 | 1.8 | 30/10/2026 | Bổ sung kết quả: MVP đạt AC-01–AC-09, C4 đạt 10/10; toàn bộ 69 kiểm tra trên clone với lake/volume mới đều đạt. Pipeline bộ mẫu 1.056,6 giây, dưới mục tiêu tạm 45 phút; giữ nguyên mục tiêu và tiêu chí | `tests/gates/results/c4-20261030-150942.json`; R-36 |
+| 1.8 | 31/10/2026 | Chốt báo cáo và slide trên sample theo yêu cầu chủ dự án; dừng/xóa dữ liệu chạy historical do ổ C gần đầy. Không đổi FR/AC, không coi C5–C7 đã đạt; số liệu sample được đọc và đối soát lại | R-37; `docs/bao-cao-do-an.md` |
+| 1.9 | 05/11/2026 | Phạm vi cuối là bộ mẫu theo yêu cầu chủ dự án. G4, FR-19: thực nghiệm chạy trên bộ mẫu; TN1 đổi biến quy mô sang tập con 25/50/100% khoản vay; thêm TN7 (kỹ thuật nạp TXT → landing → Bronze). Cổng C5 định nghĩa lại cho bộ mẫu, có phép kiểm đúng đi kèm mỗi thực nghiệm. Chạy bộ đầy đủ thành phi mục tiêu. Đây là hạ tiêu chí so với bản 1.8 (không còn bằng chứng quy mô 69,6 triệu dòng), ghi thành hạn chế trong báo cáo. Không đổi AC-01–AC-09, C0–C4, C6, C7 | `Review.md` R-38 |
+| 1.9 | 05/11/2026 | Bổ sung kết quả: C5 đạt 7/7 trên bộ mẫu; 5 thực nghiệm × 3 lần đo, phép kiểm đúng đi kèm đạt. Hai kết quả trái giả thuyết (TN6 dung lượng, TN7 reader CSV) được ghi nguyên. Không đổi tiêu chí | `tests/gates/results/c5-*.json`; R-38 |

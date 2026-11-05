@@ -1,0 +1,48 @@
+# Cấu hình chung của pipeline. Đổi giá trị ở đây, không sửa code (FR-03).
+# Đường dẫn là đường dẫn trong container: ./data/raw -> /data/raw, ./data/lake -> /lake (docker-compose.yml).
+dataset:
+  vintage: 2019
+  source: historical            # sample | historical
+  record_source: "freddiemac.sflld.{source}_{vintage}"
+paths:
+  raw:
+    sample: /data/raw/sample_2019
+    historical: /data/raw/historical_2019
+  # Delta trên ổ đĩa cục bộ (R-25); chuyển sang S3/MinIO thì đổi thành s3a://<bucket> và thêm hadoop-aws
+  lake: /lake
+periods:
+  unit: quarter             # một lần chạy DAG = một quý báo cáo
+  first: 2019Q1             # tháng báo cáo đầu tiên của vintage 2019 là 201901 (bộ mẫu) hoặc 201902 (bộ đầy đủ)
+  last: 2026Q1              # Release 47: dữ liệu perf đến 202603
+load_date:
+  # load_date của tháng báo cáo m = ngày 1 của tháng m + lag_months (PRD mục 6, R-01)
+  lag_months: 1
+landing:
+  # TXT chuyển sang Delta một lần cho mỗi bộ dữ liệu; bảng đặt tên <source>_orig, <source>_perf (R-28)
+  database: landing
+bronze:
+  database: bronze
+  orig_table: orig
+  perf_table: perf
+quality:
+  # Cổng chất lượng (FR-07): <x>_clean cho dbt, <x>_quarantine kèm lý do; ghi đè lát của kỳ
+  database: quality
+orchestration:
+  # Số kỳ tối đa gom vào một lần nạp của tầng cần thứ tự thời gian (Raw Vault, Business Vault), R-34.
+  # Bộ mẫu gom được cả 29 kỳ; với bộ đầy đủ phải đo bộ nhớ ở C5 rồi đặt lại
+  max_periods_per_batch: 1
+corrections:
+  # Đợt sửa dữ liệu giả lập (FR-14, AC-09): nạp sau kỳ cuối, load_date mới, record_source riêng. Khoản vay được chọn
+  # theo seed từ Bronze lúc chạy (không lưu dữ liệu thật trong repo); mỗi cột cộng độ lệch, chỉ chọn khoản vay
+  # mà giá trị sau sửa còn trong miền giá trị.
+  CORR1:
+    load_date: "2026-05-01"
+    record_source: "freddiemac.sflld.correction_1"
+    loans: 20
+    seed: 47
+    changes:
+      credit_score: 20
+      orig_dti: -5
+export:
+  database: gold
+  marts: [mart_delinquency, mart_prepayment, mart_covid_forbearance]

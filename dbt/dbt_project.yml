@@ -50,6 +50,11 @@ models:
     gold:
       +schema: gold
       +materialized: table
+    experiments:
+      # Model thực nghiệm C5 (R-38), tắt mặc định trong từng model; bật bằng --vars '{experiments: true}'
+      +schema: experiments
+      +meta:
+        apply_source_filter: true
 
 seeds:
   mortgage_datavault:

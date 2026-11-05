@@ -1,0 +1,5 @@
+measured_at,experiment,step,run,warmup,seconds,perf_files
+2026-11-05T04:56:09,TN7,landing_build,0,True,12.928,87
+2026-11-05T04:56:18,TN7,landing_build,1,False,9.464,87
+2026-11-05T04:56:27,TN7,landing_build,2,False,8.925,87
+2026-11-05T04:56:35,TN7,landing_build,3,False,8.366,87

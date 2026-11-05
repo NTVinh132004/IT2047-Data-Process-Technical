@@ -1,0 +1,5 @@
+measured_at,experiment,run,warmup,wall_s,split_sat_s,merged_sat_s,merged_stage_s,stg_perf_s
+2026-11-05T04:59:16,TN6,0,True,76.0,36.44,12.33,24.43,25.02
+2026-11-05T05:00:30,TN6,1,False,74.1,54.68,15.06,20.18,23.41
+2026-11-05T05:01:51,TN6,2,False,80.9,56.4,20.13,21.66,23.87
+2026-11-05T05:03:09,TN6,3,False,78.4,60.55,20.13,20.2,23.03

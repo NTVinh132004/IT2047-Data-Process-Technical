@@ -1,0 +1,5 @@
+measured_at,experiment,design,table,rows,size_bytes,num_files
+2026-11-05T05:03:12,TN6,split,sat_loan_balance,1934615,157896619,7
+2026-11-05T05:03:12,TN6,split,sat_loan_delinquency,109998,3880883,6
+2026-11-05T05:03:12,TN6,split,sat_loan_termination,100367,6392849,6
+2026-11-05T05:03:14,TN6,merged,exp_sat_loan_perf_merged,1934615,158926359,9
