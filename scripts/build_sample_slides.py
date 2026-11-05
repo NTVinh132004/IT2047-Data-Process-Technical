@@ -196,7 +196,7 @@ def main():
     box(.8,6.0,11.5,.5,'Không suy ra Data Vault luôn tốt hơn mô hình chiều có lịch sử',19,color=TEAL)
     page('TN1 · Quy mô và chi phí cố định','tn1_scale.csv: mỗi lần đo dựng stack và lake mới; AC-01/05/06 đạt mọi lần chạy.')
     image(EXPERIMENTS/'tn1_scale.png',.7,1.55,11.9)
-    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · ingest/quality gần như không đổi · Raw Vault theo số lô · AC-01/05/06 đạt 9/9 lần',17,color=TEAL)
+    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · ingest không đổi · Raw Vault theo số lô (p25: 6 lô, p100: 2 lô) · AC đạt 9/9 lần',17,color=TEAL)
     page('TN2 · Incremental và TN4 · PIT','tn2_incremental.csv: số dòng incremental = full refresh ở mọi mốc. tn4_pit.csv: checksum PIT = join trực tiếp.')
     image(EXPERIMENTS/'tn2_incremental.png',.5,1.6,6.1)
     image(EXPERIMENTS/'tn4_pit.png',6.75,1.6,6.1)

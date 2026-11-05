@@ -82,6 +82,7 @@ Each rule comes from a measured failure in this project.
 | SP-06 | Read source text files as text and split; never rely on the CSV reader for field-count validation | The CSV reader pads or truncates rows silently (R-27) |
 | SP-07 | Keep Bronze values as strings; cast in staging | Type errors must stay visible to the quality gate (R-27) |
 | SP-08 | Limit Spark UI history on the long-running Thrift Server | `spark-defaults.conf`, R-30 |
+| SP-09 | Keep the Thrift driver heap at least 1.5 GiB below the container memory limit (2.5 GiB heap in 4 GiB) and give the Thrift container a restart policy | Heap 3 GiB in a 4 GiB container was OOM-killed (exit 137) during a clean-clone gate run, and nothing restarted it (R-39) |
 
 ## 5. Engineering process
 

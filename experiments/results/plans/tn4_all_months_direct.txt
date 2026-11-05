@@ -143,7 +143,7 @@ Results [2]: [LOAN_HK#4038, AS_OF_DATE#4043]
 
 (4) Exchange
 Input [2]: [LOAN_HK#4038, AS_OF_DATE#4043]
-Arguments: hashpartitioning(LOAN_HK#4038, AS_OF_DATE#4043, 16), ENSURE_REQUIREMENTS, [plan_id=3837]
+Arguments: hashpartitioning(LOAN_HK#4038, AS_OF_DATE#4043, 16), ENSURE_REQUIREMENTS, [plan_id=3784]
 
 (5) HashAggregate
 Input [2]: [LOAN_HK#4038, AS_OF_DATE#4043]
@@ -180,7 +180,7 @@ Results [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
 
 (11) Exchange
 Input [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
-Arguments: hashpartitioning(LOAN_HK#3903, AS_OF_DATE#3896, 16), ENSURE_REQUIREMENTS, [plan_id=3839]
+Arguments: hashpartitioning(LOAN_HK#3903, AS_OF_DATE#3896, 16), ENSURE_REQUIREMENTS, [plan_id=3786]
 
 (12) HashAggregate
 Input [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
@@ -191,7 +191,7 @@ Results [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
 
 (13) Exchange
 Input [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
-Arguments: hashpartitioning(LOAN_HK#3903, 16), ENSURE_REQUIREMENTS, [plan_id=3843]
+Arguments: hashpartitioning(LOAN_HK#3903, 16), ENSURE_REQUIREMENTS, [plan_id=3790]
 
 (14) Sort
 Input [2]: [LOAN_HK#3903, AS_OF_DATE#3896]
@@ -210,7 +210,7 @@ Condition : (isnotnull(LOAN_HK#3908) AND isnotnull(load_date#3920))
 
 (17) Exchange
 Input [3]: [LOAN_HK#3908, current_upb#3911, load_date#3920]
-Arguments: hashpartitioning(LOAN_HK#3908, 16), ENSURE_REQUIREMENTS, [plan_id=3844]
+Arguments: hashpartitioning(LOAN_HK#3908, 16), ENSURE_REQUIREMENTS, [plan_id=3791]
 
 (18) Sort
 Input [3]: [LOAN_HK#3908, current_upb#3911, load_date#3920]
@@ -248,7 +248,7 @@ Input [5]: [LOAN_HK#3903, AS_OF_DATE#3896, current_upb#3911, load_date#3920, rn#
 
 (26) Exchange
 Input [3]: [LOAN_HK#3903, AS_OF_DATE#3896, current_upb#3911]
-Arguments: hashpartitioning(LOAN_HK#3903, AS_OF_DATE#3896, 16), ENSURE_REQUIREMENTS, [plan_id=3919]
+Arguments: hashpartitioning(LOAN_HK#3903, AS_OF_DATE#3896, 16), ENSURE_REQUIREMENTS, [plan_id=3866]
 
 (27) Sort
 Input [3]: [LOAN_HK#3903, AS_OF_DATE#3896, current_upb#3911]
@@ -288,7 +288,7 @@ Results [2]: [LOAN_HK#4020, AS_OF_DATE#4025]
 
 (34) Exchange
 Input [2]: [LOAN_HK#4020, AS_OF_DATE#4025]
-Arguments: hashpartitioning(LOAN_HK#4020, AS_OF_DATE#4025, 16), ENSURE_REQUIREMENTS, [plan_id=3863]
+Arguments: hashpartitioning(LOAN_HK#4020, AS_OF_DATE#4025, 16), ENSURE_REQUIREMENTS, [plan_id=3810]
 
 (35) HashAggregate
 Input [2]: [LOAN_HK#4020, AS_OF_DATE#4025]
@@ -310,7 +310,7 @@ Condition : (isnotnull(LOAN_HK#3922) AND isnotnull(load_date#3932))
 
 (38) BroadcastExchange
 Input [3]: [LOAN_HK#3922, delinquency_status#3925, load_date#3932]
-Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3866]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3813]
 
 (39) BroadcastHashJoin
 Left keys [1]: [LOAN_HK#4020]
@@ -376,7 +376,7 @@ Results [2]: [LOAN_HK#4026, AS_OF_DATE#4031]
 
 (52) Exchange
 Input [2]: [LOAN_HK#4026, AS_OF_DATE#4031]
-Arguments: hashpartitioning(LOAN_HK#4026, AS_OF_DATE#4031, 16), ENSURE_REQUIREMENTS, [plan_id=3879]
+Arguments: hashpartitioning(LOAN_HK#4026, AS_OF_DATE#4031, 16), ENSURE_REQUIREMENTS, [plan_id=3826]
 
 (53) HashAggregate
 Input [2]: [LOAN_HK#4026, AS_OF_DATE#4031]
@@ -398,7 +398,7 @@ Condition : (isnotnull(LOAN_HK#3934) AND isnotnull(load_date#3953))
 
 (56) BroadcastExchange
 Input [3]: [LOAN_HK#3934, zero_balance_code#3937, load_date#3953]
-Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3882]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3829]
 
 (57) BroadcastHashJoin
 Left keys [1]: [LOAN_HK#4026]
@@ -464,7 +464,7 @@ Results [2]: [LOAN_HK#4032, AS_OF_DATE#4037]
 
 (70) Exchange
 Input [2]: [LOAN_HK#4032, AS_OF_DATE#4037]
-Arguments: hashpartitioning(LOAN_HK#4032, AS_OF_DATE#4037, 16), ENSURE_REQUIREMENTS, [plan_id=3895]
+Arguments: hashpartitioning(LOAN_HK#4032, AS_OF_DATE#4037, 16), ENSURE_REQUIREMENTS, [plan_id=3842]
 
 (71) HashAggregate
 Input [2]: [LOAN_HK#4032, AS_OF_DATE#4037]
@@ -486,7 +486,7 @@ Condition : (isnotnull(LOAN_HK#3955) AND isnotnull(load_date#3973))
 
 (74) BroadcastExchange
 Input [3]: [LOAN_HK#3955, credit_score#3957, load_date#3973]
-Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3898]
+Arguments: HashedRelationBroadcastMode(List(input[0, string, false]),false), [plan_id=3845]
 
 (75) BroadcastHashJoin
 Left keys [1]: [LOAN_HK#4032]
@@ -537,7 +537,7 @@ Results [3]: [count#5381L, sum#5382, isEmpty#5383]
 
 (85) Exchange
 Input [3]: [count#5381L, sum#5382, isEmpty#5383]
-Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=3942]
+Arguments: SinglePartition, ENSURE_REQUIREMENTS, [plan_id=3889]
 
 (86) HashAggregate
 Input [3]: [count#5381L, sum#5382, isEmpty#5383]

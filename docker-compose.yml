@@ -81,7 +81,9 @@ services:
     command:
       - /opt/spark/sbin/start-thriftserver.sh
       - --master=local[4]
-      - --driver-memory=3g
+      # Heap 2,5 GiB trong container 4 GiB: chừa 1,5 GiB cho bộ nhớ ngoài heap (metaspace, direct buffer, Parquet).
+      # Heap 3 GiB bị OOM-kill sau khoảng 19 phút chạy cổng C1 trên clone sạch (R-39, SP-09)
+      - --driver-memory=2560m
     volumes:
       - ./docker/spark/conf:/opt/spark/conf-lakehouse:ro
       - ${LAKE_DATA_DIR:-./data/lake}:/lake
@@ -93,6 +95,8 @@ services:
       interval: 5s
       retries: 40
     mem_limit: 4g
+    # Bị kill thì tự lên lại; tầng dbt đang chạy được job theo tầng thử lại có giới hạn (PL-05, R-39)
+    restart: unless-stopped
 
   airflow-init:
     <<: *airflow

@@ -371,15 +371,15 @@ Quy tắc đo theo Kế hoạch mục 8: mỗi cấu hình một lần khởi đ
 
 ### Kết quả nghiệm thu R-38 (05/11/2026)
 
-`make experiments` chạy 02:46–05:44 trên stack thực nghiệm (khoảng 3 giờ), mọi bước trên cùng digest code `d17a5dc0…` (`experiments/results/manifest.json`), commit nền `f9e5468` cùng thay đổi chưa commit. `make gate N=5` đạt 7/7. Trung vị ba lần đo:
+Lượt đo đầu (02:46–05:44, Thrift heap 3 GiB, digest `d17a5dc0…`, sau đó `a962deab…`) đạt C5 7/7 nhưng bị thay thế theo R-39 vì heap Thrift đổi. Số liệu dưới đây là lượt đo trên cấu hình R-39 (heap 2,5 GiB, restart policy): TN2, TN4, TN6, TN7 ngày 05/11 13:09–16:03; TN1 đo lại 16:05–18:06 (lý do ở R-39). `make gate N=5` đạt 7/7. Trung vị ba lần đo:
 
 | TN | Kết quả | Kiểm đúng |
 | --- | --- | --- |
-| TN1 | End-to-end p25/p50/p100: 687/784/834 giây; dữ liệu ×3,9 thì thời gian +21%. Ingest và quality gần như không đổi (29 job nối tiếp); Raw Vault 146–468 giây, đi theo số lô (2–6) chứ không theo dữ liệu; Business Vault, Gold, export tăng 1,5–1,8 lần | 9/9 lần chạy đạt AC-01, AC-05, AC-06, 29 kỳ × 6 tầng, 0 FAILED |
-| TN2 | Incremental một kỳ: 41,5/35,0/37,5/35,6 giây ở 4/12/20/29 kỳ; full refresh 32,0/54,7/66,3/72,0 giây. Full refresh nhanh hơn khi lịch sử ngắn (4 kỳ) | Số dòng từng bảng bằng nhau ở 4 mốc |
-| TN4 | Mọi mốc: PIT 3,54 giây, join as-of 16,97 giây (4,8 lần); một mốc: 2,12 và 2,48 giây. SQL 6 so với 35 dòng; 0 so với 4 nút Window | Cùng checksum |
-| TN6 | Số dòng thuộc tính quá hạn 109.998 (tách) so với 1.934.615 (gộp); dung lượng tổng tách 160,4 MiB, gộp 151,6 MiB; dựng 56,4 so với 20,1 giây; truy vấn lịch sử quá hạn 0,60 so với 1,28 giây | Cùng checksum lịch sử quá hạn |
-| TN7 | Lát Bronze: TXT 2,73–2,87 giây, landing 0,38–0,70 giây; dựng landing 8,93 giây; perf 211,4 MiB TXT → 49,2 MiB landing; text + split và CSV có cột lỗi cùng bắt 20/20 dòng sai trường, CSV mặc định 0/20, FAILFAST dừng cả lần đọc | Cùng số dòng ở 4 kỳ |
+| TN1 | End-to-end p25/p50/p100: 715/744/795 giây; dữ liệu ×3,9 thì thời gian +11%. Ingest gần như không đổi (121–133 giây); Raw Vault đi theo số lô và ngược chiều quy mô (p25 6 lô 429 giây, p100 2 lô 197 giây); Business Vault, Gold, export tăng 1,4–1,8 lần | 9/9 lần chạy đạt AC-01, AC-05, AC-06, 29 kỳ × 6 tầng, 0 FAILED |
+| TN2 | Incremental một kỳ: 37,0/35,0/36,4/35,1 giây ở 4/12/20/29 kỳ; full refresh 25,5/54,6/64,6/67,1 giây. Full refresh nhanh hơn khi lịch sử ngắn (4 kỳ) | Số dòng từng bảng bằng nhau ở 4 mốc |
+| TN4 | Mọi mốc: PIT 3,18 giây, join as-of 17,65 giây (5,6 lần); một mốc: 2,05 và 2,21 giây. SQL 6 so với 35 dòng; 0 so với 4 nút Window | Cùng checksum |
+| TN6 | Số dòng thuộc tính quá hạn 109.998 (tách) so với 1.934.615 (gộp); dung lượng tổng tách 160,4 MiB, gộp 151,6 MiB; dựng 53,6 so với 14,0 giây; truy vấn lịch sử quá hạn 0,51 so với 1,16 giây | Cùng checksum lịch sử quá hạn |
+| TN7 | Lát Bronze: TXT 2,75–2,86 giây, landing 0,35–0,70 giây; dựng landing 8,69 giây; perf 211,4 MiB TXT → 49,2 MiB landing; text + split và CSV có cột lỗi cùng bắt 20/20 dòng sai trường, CSV mặc định 0/20, FAILFAST dừng cả lần đọc | Cùng số dòng ở 4 kỳ |
 
 Hai kết quả trái giả thuyết, giữ nguyên trong báo cáo: (1) tách Satellite không giảm dung lượng trên Parquet; lợi ích nằm ở truy vấn lịch sử từng nhóm thuộc tính; (2) reader CSV phát hiện được sai số trường khi cấu hình `columnNameOfCorruptRecord`, nên nhận định ở R-27 chỉ đúng với cấu hình mặc định. Quyết định text + split giữ nguyên vì giữ giá trị theo vị trí và gắn lý do lỗi theo luật; tốc độ hai cách tương đương.
 
@@ -388,3 +388,23 @@ Khi chạy thử (EP-04, tập p25) phát hiện và sửa: lệnh `CLEAR CACHE`
 Sau khi đo phát hiện hàm `code_digest` băm cả file bị gitignore (gói dbt của spike, wheel trong `docker/airflow/wheels/`), không có trong bản clone sạch, nên C5 sẽ trượt ở C6 dù code không đổi. Trước khi sửa đã xác nhận digest của cây hiện tại vẫn bằng digest lúc đo (`d17a5dc0…`); sau đó hàm chỉ băm file git nhìn thấy, và `manifest.json` ghi digest mới `a962deab…` kèm `measured_code_digest` cũ và lý do. Không đo lại vì code được đo không đổi.
 
 Rà C7 (05/11/2026): `tests/gates/results/c3-20261030-100553.json` (commit `59d9042`) chứa 3 mã khoản vay thật kèm điểm tín dụng trong mục `ac09.sample`; đã thay bằng `<đã ẩn, EP-08>` ở bản làm việc. Test C3 hiện tại không còn ghi mã khoản vay. Lịch sử git vẫn chứa bản cũ; repo chưa có remote, việc viết lại lịch sử để xóa hẳn do chủ repo quyết định. Unit test mới của R-38 đổi sang mã giả lập. Bản clone C6 được chụp trước hai sửa đổi chỉ-test này.
+
+## R-39 — Thrift Server bị OOM-kill trên clone sạch (05/11/2026)
+
+**Hiện tượng.** Lượt `make verify-clean` (C6) sau commit `d399fae`: cổng C1 `test_rerun_period_idempotent` trượt. Khi chạy lại kỳ 2020Q1, tầng gold lỗi `failed to resolve sockaddr for spark-thrift:10000`. Container `spark-thrift` dừng với `OOMKilled=true`, exit 137, sau khoảng 19 phút chạy (đã qua lần nạp đủ 29 kỳ và đang chạy dbt test của Gold). Container không tự khởi động lại, nên mọi tầng dbt sau đó thất bại tới hết số lần thử. Lượt C6 bị dừng có chủ đích để không tốn thêm khoảng 1 giờ cho các cổng chắc chắn trượt.
+
+**Nguyên nhân.** Container giới hạn 4 GiB nhưng heap driver 3 GiB, chỉ còn 1 GiB cho bộ nhớ ngoài heap (metaspace, direct buffer của Parquet/Delta, luồng Thrift). Đây là cùng loại lỗi đã gặp với bộ đầy đủ (mục OOM historical ở trên): kill ở giới hạn cgroup, không phải `OutOfMemoryError` của Java. Trên sample lỗi không tất định: 9 lần TN1, các lượt TN2–TN7 và lượt clone R-36 không bị.
+
+**Quyết định** (chủ dự án chọn, 05/11/2026):
+
+1. `--driver-memory` của Thrift từ 3 GiB xuống 2,5 GiB, chừa 1,5 GiB ngoài heap trong container 4 GiB. Không tăng `mem_limit` vì tổng giới hạn các container đã sát RAM 12 GiB của WSL.
+2. `restart: unless-stopped` cho `spark-thrift`: nếu vẫn bị kill thì tự lên lại, và tầng đang chạy được job theo tầng thử lại có giới hạn (PL-05). `docker compose stop` vẫn giữ container ở trạng thái dừng.
+3. Heap đổi có thể đổi thời gian đo, nên đo lại toàn bộ thực nghiệm C5 trên cấu hình mới. Kết quả C5 trước đó (cấu hình heap 3 GiB) bị thay thế, không dùng trong báo cáo.
+
+Thêm luật nền tảng SP-09 vào `docs/principles.md`. Không đổi FR, AC, model hay tiêu chí cổng.
+
+### Kết quả sau R-39 (05/11/2026)
+
+Đo lại toàn bộ C5 trên cấu hình mới, chạy tách khỏi phiên Claude Code (tác vụ nền của Claude Code bị dừng hai lần vì cơ chế bảo vệ RAM khi pipeline dùng khoảng 10/11 GiB). Ổ C còn khoảng 13 GB trước khi dọn Docker; một tiến trình canh dừng thực nghiệm nếu ổ C dưới 4 GB (không kích hoạt, thấp nhất 21 GB).
+
+Trong lượt đo đầu sau R-39, 8/9 lần TN1 sạch; lần p25 thứ ba có 23 lượt FAILED ở Raw Vault (một lô 23 kỳ lỗi rồi lần thử lại nạp cả 29 kỳ, AC-01/05/06 vẫn đạt). Nguyên nhân không xác định: stack đã bị xóa khi chuyển sang lần chạy sau, sự kiện Docker không còn lưu. C5 trượt tiêu chí TN1 "0 FAILED"; chủ dự án chọn đo lại riêng TN1 thay vì nới tiêu chí. TN1 đo lại đủ 9 lần với tiến trình chỉ đọc ghi lại mọi dòng FAILED và trạng thái Thrift mỗi 30 giây: 0 FAILED, Thrift không khởi động lại, không OOM. Số liệu lượt có lỗi lưu ở `data/reports/experiments/tn1_scale-luot2-co-loi.csv`, nêu trong báo cáo mục 5.3, không dùng tính trung vị. Nếu lỗi tái diễn ở C6, nhật ký `control.layer_run` của clone sẽ được giữ lại để chẩn đoán trước khi dọn.

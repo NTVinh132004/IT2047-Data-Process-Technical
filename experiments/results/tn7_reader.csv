@@ -1,9 +1,9 @@
 measured_at,experiment,step,method,run,warmup,seconds
-2026-11-05T04:57:51,TN7,reader_full_perf,text_split,0,True,0.89
-2026-11-05T04:57:52,TN7,reader_full_perf,text_split,1,False,0.877
-2026-11-05T04:57:53,TN7,reader_full_perf,text_split,2,False,0.871
-2026-11-05T04:57:54,TN7,reader_full_perf,text_split,3,False,0.862
-2026-11-05T04:57:55,TN7,reader_full_perf,csv_reader,0,True,1.301
-2026-11-05T04:57:56,TN7,reader_full_perf,csv_reader,1,False,0.921
-2026-11-05T04:57:57,TN7,reader_full_perf,csv_reader,2,False,0.938
-2026-11-05T04:57:58,TN7,reader_full_perf,csv_reader,3,False,0.877
+2026-11-05T15:19:00,TN7,reader_full_perf,text_split,0,True,0.984
+2026-11-05T15:19:01,TN7,reader_full_perf,text_split,1,False,0.881
+2026-11-05T15:19:02,TN7,reader_full_perf,text_split,2,False,0.872
+2026-11-05T15:19:03,TN7,reader_full_perf,text_split,3,False,0.865
+2026-11-05T15:19:04,TN7,reader_full_perf,csv_reader,0,True,1.25
+2026-11-05T15:19:05,TN7,reader_full_perf,csv_reader,1,False,1.051
+2026-11-05T15:19:06,TN7,reader_full_perf,csv_reader,2,False,0.982
+2026-11-05T15:19:07,TN7,reader_full_perf,csv_reader,3,False,1.033

@@ -209,7 +209,7 @@ Thiết kế C4: `Review.md` R-36. Gold gồm bảng snapshot tái dựng từ V
 - [x] Chạy 5 thực nghiệm bắt buộc ở mục 8 trên bộ mẫu và tập con (`make experiments`, stack riêng `scripts/experiment.sh`, R-38)
 - [x] Biểu đồ và giải thích từng thực nghiệm; `make gate N=5`
 
-**Cổng C5 đạt 05/11/2026:** 7/7 kiểm tra; 5 thực nghiệm × 3 lần đo, mọi phép kiểm đúng đi kèm đạt, kết quả gắn digest code. Số liệu: `Review.md` R-38 (kết quả), báo cáo chương 5.
+**Cổng C5 đạt 05/11/2026:** 7/7 kiểm tra trên cấu hình R-39 (heap Thrift 2,5 GiB); 5 thực nghiệm × 3 lần đo, mọi phép kiểm đúng đi kèm đạt, kết quả gắn digest code. TN1 đo lại một lần vì một lần chạy có lỗi tự hồi phục (R-39). Số liệu: `Review.md` R-38 (kết quả), R-39, báo cáo chương 5.
 
 **Giai đoạn 6: Phân tích và code freeze (tuần 7)**
 

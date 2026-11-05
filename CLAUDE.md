@@ -24,7 +24,12 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 
 ## Trạng thái (05/11/2026)
 
-Cổng C0–C4 đạt (30/10/2026): 69/69 kiểm tra trên clone với lake/volume mới (R-36). R-37 (31/10): xóa dữ liệu historical do ổ C gần đầy. R-38 (05/11, PRD 1.9): phạm vi cuối là bộ mẫu; C5 gồm 5 thực nghiệm (TN1, TN2, TN4, TN6, TN7) trên bộ mẫu và tập con 25/50/100%, chạy trên stack riêng. Kế tiếp: chạy xong C5, viết lại báo cáo theo kỹ thuật xử lý từng tầng, C6 (`make verify-clean`), C7.
+Cổng C0–C4 đạt (R-36). R-38 (PRD 1.9): phạm vi cuối là bộ mẫu. R-39: heap Thrift 2,5 GiB và restart policy sau OOM-kill ở lượt C6 đầu. C5 đạt 7/7 trên cấu hình R-39 (TN1 đo lại một lần vì một lần chạy có lỗi tự hồi phục, chưa rõ nguyên nhân).
+
+**Làm tiếp theo thứ tự:**
+1. C6: chạy tách khỏi phiên Claude Code (`setsid nohup make verify-clean > data/reports/experiments/verify-clean.log 2>&1 < /dev/null &`, khoảng 1,5–2 giờ), kèm `data/reports/experiments/failure-watch.sh` nếu muốn ghi lỗi (sửa tên stack trong script cho project clone). Nếu trượt vì FAILED, giữ nhật ký `control.layer_run` của clone trước khi dọn. Đạt thì ghi vào Kế hoạch mục 6, PRD lịch sử.
+2. C7: checklist bàn giao. Chủ repo cần quyết: viết lại lịch sử git để xóa 3 mã khoản vay thật trong commit `59d9042` (đã ẩn ở bản làm việc, repo chưa có remote); xóa `scripts/build_sample_docs.py` (chưa track, đã gỡ khỏi Makefile); chuyển ổ ảo Ubuntu (`ext4.vhdx`, đang ở ổ C) sang ổ F và bật sparse.
+- Lệnh dài (`make experiments`, `make verify-clean`) chạy tách phiên (`setsid nohup`) hoặc trong terminal riêng: tác vụ nền của Claude Code bị dừng khi RAM sát mức. Số liệu thực nghiệm: `data/reports/experiments/exp_numbers.py`
 - Tầng phải dựng lại vì đổi model: `python -m ingestion.control invalidate --layers raw_vault,business_vault --reason ...` rồi `make run-all`; không chạy lại tầng dưới
 - Phạm vi chốt theo R-25 và R-38, không cắt thêm; bộ đầy đủ là hướng phát triển (hạ tầng historical giữ trong repo, không nghiệm thu)
 

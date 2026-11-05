@@ -10,7 +10,7 @@
 
 Báo cáo tập trung vào kỹ thuật xử lý dữ liệu ở từng tầng: đọc TXT dạng text rồi tự tách trường để giữ bằng chứng lỗi; landing Delta phân vùng theo tháng để mỗi kỳ chỉ đọc 3 tháng; ghi đè đúng lát kỳ bằng `replaceWhere`; cổng chất lượng tách hard rule, bản sao và xung đột khóa bằng hàm cửa sổ; băm khóa SHA-256 và nạp Satellite chỉ chèn khi `hash_diff` đổi; PIT với con trỏ và ghost record để mọi join là equi-join; công bố mart PostgreSQL trong một transaction.
 
-Trên bộ mẫu, pipeline đạt 9 tiêu chí nghiệm thu AC-01–AC-09 (69/69 kiểm tra C0–C4 trên clone sạch) và năm thực nghiệm C5, mỗi cấu hình ba lần đo, mỗi thực nghiệm có phép kiểm đúng đi kèm. Landing làm lát Bronze một kỳ nhanh hơn 4–7 lần so với đọc thẳng TXT; PIT nhanh hơn 4,8 lần so với join as-of trực tiếp khi lấy trạng thái mọi khoản vay ở mọi mốc; nạp Raw Vault tăng dần cho cùng số dòng với dựng lại toàn bộ và giữ thời gian một kỳ gần như không đổi (35,6 giây ở 29 kỳ, so với 72,0 giây khi dựng lại); tách Satellite theo tốc độ thay đổi giảm 94% số dòng của thuộc tính ít đổi nhưng không giảm tổng dung lượng trên Parquet. Ở quy mô sample, chi phí cố định của Spark và dbt chiếm phần lớn thời gian: dữ liệu tăng 3,9 lần, pipeline chỉ chậm thêm 21%.
+Trên bộ mẫu, pipeline đạt 9 tiêu chí nghiệm thu AC-01–AC-09 (69/69 kiểm tra C0–C4 trên clone sạch) và năm thực nghiệm C5, mỗi cấu hình ba lần đo, mỗi thực nghiệm có phép kiểm đúng đi kèm. Landing làm lát Bronze một kỳ nhanh hơn 4–8 lần so với đọc thẳng TXT; PIT nhanh hơn 5,6 lần so với join as-of trực tiếp khi lấy trạng thái mọi khoản vay ở mọi mốc; nạp Raw Vault tăng dần cho cùng số dòng với dựng lại toàn bộ và giữ thời gian một kỳ gần như không đổi (35,1 giây ở 29 kỳ, so với 67,1 giây khi dựng lại); tách Satellite theo tốc độ thay đổi giảm 94% số dòng của thuộc tính ít đổi nhưng không giảm tổng dung lượng trên Parquet. Ở quy mô sample, chi phí cố định của Spark và dbt chiếm phần lớn thời gian: dữ liệu tăng 3,9 lần, pipeline chỉ chậm thêm 11%.
 
 **Từ khóa:** Data Lakehouse; Data Vault 2.0; Medallion; Apache Spark; Delta Lake; dbt; Freddie Mac; xử lý dữ liệu theo lô.
 
@@ -132,12 +132,12 @@ flowchart LR
 
 | Tầng | Công cụ | Kỹ thuật chính | Đầu ra (p100) | Thời gian bận (p100, trung vị) |
 | --- | --- | --- | --- | --- |
-| Landing + Bronze | PySpark | Đọc text rồi tách trường; Delta phân vùng tháng; `replaceWhere` theo kỳ | 1.934.614 dòng perf, 87 file | 136,5 giây cho 29 kỳ |
-| Cổng chất lượng | PySpark | Hard rule theo thứ tự ưu tiên; cửa sổ theo khóa để tách bản sao | clean/quarantine/dedup theo kỳ | 415,4 giây |
-| Staging + Raw Vault | dbt-spark + AutomateDV | Băm khóa và `hash_diff`; nạp chỉ chèn; gom lô kỳ | 12 bảng Raw Vault | 307,0 giây (3–5 lô) |
-| Business Vault | dbt-spark | Snapshot table, PIT con trỏ, Satellite tính toán | PIT 1.934.614 dòng | 73,6 giây |
-| Gold | dbt-spark | Dựng lại bảng từ Vault; equi-join qua PIT | fact 1.934.614 dòng, 3 mart | 52,9 giây |
-| Export | PySpark JDBC | Bảng trung gian, đối soát, thay `serving` trong một transaction | 3 mart PostgreSQL | 33,6 giây |
+| Landing + Bronze | PySpark | Đọc text rồi tách trường; Delta phân vùng tháng; `replaceWhere` theo kỳ | 1.934.614 dòng perf, 87 file | 132,9 giây cho 29 kỳ |
+| Cổng chất lượng | PySpark | Hard rule theo thứ tự ưu tiên; cửa sổ theo khóa để tách bản sao | clean/quarantine/dedup theo kỳ | 355,8 giây |
+| Staging + Raw Vault | dbt-spark + AutomateDV | Băm khóa và `hash_diff`; nạp chỉ chèn; gom lô kỳ | 12 bảng Raw Vault | 196,6 giây (2 lô) |
+| Business Vault | dbt-spark | Snapshot table, PIT con trỏ, Satellite tính toán | PIT 1.934.614 dòng | 67,3 giây |
+| Gold | dbt-spark | Dựng lại bảng từ Vault; equi-join qua PIT | fact 1.934.614 dòng, 3 mart | 51,2 giây |
+| Export | PySpark JDBC | Bảng trung gian, đối soát, thay `serving` trong một transaction | 3 mart PostgreSQL | 31,1 giây |
 
 ### 4.2. TXT → landing: đọc một lần, giữ nguyên bằng chứng
 
@@ -159,13 +159,13 @@ Lý do không dùng reader CSV có schema cố định là bằng chứng về s
 | CSV mặc định | 0/20 | 2.000 | Không còn dấu hiệu nào: dòng thiếu được lấp null, dòng thừa bị cắt |
 | CSV `FAILFAST` | dừng ở dòng lỗi đầu | 0 | Cả lần đọc thất bại, không nạp được dòng tốt nào |
 
-Như vậy reader CSV *có thể* phát hiện sai số trường nếu cấu hình cột lỗi, nhưng phải cache DataFrame mới truy vấn được cột này, và giá trị các trường của dòng lỗi đã bị biến đổi. Tách thủ công cho cùng khả năng phát hiện, giữ được giá trị theo vị trí, và gắn lý do lỗi theo từng luật ở cổng chất lượng. Về tốc độ, đọc cả file perf bằng text + split mất 0,87 giây, reader CSV có cột lỗi 0,92 giây (trung vị ba lần); khác biệt nhỏ so với các chi phí khác trong pipeline.
+Như vậy reader CSV *có thể* phát hiện sai số trường nếu cấu hình cột lỗi, nhưng phải cache DataFrame mới truy vấn được cột này, và giá trị các trường của dòng lỗi đã bị biến đổi. Tách thủ công cho cùng khả năng phát hiện, giữ được giá trị theo vị trí, và gắn lý do lỗi theo từng luật ở cổng chất lượng. Về tốc độ, đọc cả file perf bằng text + split mất 0,87 giây, reader CSV có cột lỗi 1,03 giây (trung vị ba lần); khác biệt nhỏ so với các chi phí khác trong pipeline.
 
 **Kỹ thuật 2: Delta phân vùng theo tháng báo cáo.** File perf của Freddie Mac chia theo quý *khởi tạo*, còn pipeline nạp theo quý *báo cáo*. Nếu Bronze đọc thẳng TXT, mỗi kỳ phải quét cả file 211 MiB để lấy 3 tháng (R-28). Landing ghi perf thành bảng Delta `partitionBy(reporting_period)`, sau khi `repartition(reporting_period)` để mỗi tháng đúng một file: 87 tháng thành 87 file. Không có bước repartition, mỗi khối đọc sẽ ghi một file nhỏ vào mọi tháng nó gặp. Landing còn tính sẵn `loan_first_month` (tháng perf đầu tiên của từng khoản vay) để Bronze cắt lát orig mà không quét lại perf.
 
 Định dạng cột nén làm dữ liệu nhỏ đi đáng kể: perf từ 211,4 MiB TXT còn 49,2 MiB Parquet trong landing, tỷ lệ 4,3 lần.
 
-**Kỹ thuật 3: dấu vân tay nguồn.** Landing chỉ dựng lại khi nguồn đổi. Tên, kích thước, thời điểm sửa của file TXT cộng nội dung schema được băm thành dấu vân tay, lưu ở `_state_<source>.json` ngay trong thư mục database landing. Job so dấu vân tay mà không cần khởi động Spark. Xóa database landing thì file trạng thái mất theo, nên landing không bao giờ trỏ vào bảng đã xóa. Dựng landing cho cả bộ mẫu mất 8,9 giây (TN7 a), trả một lần cho cả 29 kỳ.
+**Kỹ thuật 3: dấu vân tay nguồn.** Landing chỉ dựng lại khi nguồn đổi. Tên, kích thước, thời điểm sửa của file TXT cộng nội dung schema được băm thành dấu vân tay, lưu ở `_state_<source>.json` ngay trong thư mục database landing. Job so dấu vân tay mà không cần khởi động Spark. Xóa database landing thì file trạng thái mất theo, nên landing không bao giờ trỏ vào bảng đã xóa. Dựng landing cho cả bộ mẫu mất 8,7 giây (TN7 a), trả một lần cho cả 29 kỳ.
 
 ### 4.3. Landing → Bronze: cắt theo quý báo cáo, ghi đè đúng lát
 
@@ -181,12 +181,12 @@ TN7 (b) so cắt lát Bronze một kỳ bằng hai cách, cùng logic, cùng s�
 
 | Kỳ | Đọc thẳng TXT (giây) | Landing Delta (giây) | Số file perf đọc (TXT / landing) |
 | --- | ---: | ---: | --- |
-| 2019Q1 | 2,87 | 0,67 | 1 / 3 |
-| 2020Q2 | 2,84 | 0,70 | 1 / 3 |
-| 2023Q1 | 2,73 | 0,40 | 1 / 3 |
-| 2026Q1 | 2,74 | 0,38 | 1 / 3 |
+| 2019Q1 | 2,86 | 0,70 | 1 / 3 |
+| 2020Q2 | 2,82 | 0,66 | 1 / 3 |
+| 2023Q1 | 2,77 | 0,35 | 1 / 3 |
+| 2026Q1 | 2,75 | 0,39 | 1 / 3 |
 
-Đọc thẳng TXT tốn gần như cùng một thời gian (2,7–2,9 giây) ở mọi kỳ, vì kỳ nào cũng quét cả file 211 MiB và tính lại tháng perf đầu tiên của 50.000 khoản vay. Qua landing, thời gian còn 0,38–0,70 giây (nhanh hơn 4–7 lần) và phụ thuộc kích thước lát của kỳ: 2019Q1 ít dòng perf nhưng có 6.957 khoản vay mới phải join orig, 2020Q2 có 133.213 dòng perf. Dựng landing tốn 8,9 giây một lần; 29 kỳ, mỗi kỳ tiết kiệm khoảng 2,2 giây, nên khoản đầu tư này hoàn vốn ngay trên bộ mẫu. Với bộ đầy đủ (8,2 GB, khoảng 36 lần bộ mẫu), khối lượng quét lặp lại 29 lần là lý do của R-28; dự án không đo lại trên bộ đầy đủ (R-38).
+Đọc thẳng TXT tốn gần như cùng một thời gian (2,75–2,86 giây) ở mọi kỳ, vì kỳ nào cũng quét cả file 211 MiB và tính lại tháng perf đầu tiên của 50.000 khoản vay. Qua landing, thời gian còn 0,35–0,70 giây (nhanh hơn 4–8 lần) và phụ thuộc kích thước lát của kỳ: 2019Q1 ít dòng perf nhưng có 6.957 khoản vay mới phải join orig, 2020Q2 có 133.213 dòng perf. Dựng landing tốn 8,7 giây một lần; 29 kỳ, mỗi kỳ tiết kiệm khoảng 2,2 giây, nên khoản đầu tư này hoàn vốn ngay trên bộ mẫu. Với bộ đầy đủ (8,2 GB, khoảng 36 lần bộ mẫu), khối lượng quét lặp lại 29 lần là lý do của R-28; dự án không đo lại trên bộ đầy đủ (R-38).
 
 ### 4.4. Cổng chất lượng: hard rule trước Raw Vault
 
@@ -231,11 +231,11 @@ Một quan sát về file nhỏ: `quality.perf_clean` có 464 file cho 1.934.614
 
 Dư nợ đổi gần như mỗi tháng nên `sat_loan_balance` có số dòng xấp xỉ perf (cộng một ghost record). Trạng thái quá hạn ít đổi nên `sat_loan_delinquency` chỉ giữ 5,7% số dòng. TN6 (mục 5.6) đo đánh đổi này so với một Satellite gộp.
 
-Một hệ quả về dung lượng: Raw Vault lớn hơn nguồn. `sat_loan_balance` chiếm 152,4 MiB, `xts_loan` 186,6 MiB, trong khi cả file perf TXT là 211,4 MiB và landing perf chỉ 49,2 MiB. Mỗi dòng mang khóa băm và `hash_diff` dạng chuỗi hex 64 ký tự. Đây là giá trị gần như ngẫu nhiên nên Parquet hầu như không nén được, khác với các cột nghiệp vụ lặp lại nhiều. Đây là giải thích, chưa đo tách riêng phần khóa băm. Lưu hash dạng nhị phân 32 byte sẽ giảm khoảng một nửa phần này, nhưng quy tắc hash đã chốt (FR-06) nên không đổi.
+Một hệ quả về dung lượng: Raw Vault lớn hơn nguồn. `sat_loan_balance` chiếm 153,6 MiB, `xts_loan` 181,1 MiB, trong khi cả file perf TXT là 211,4 MiB và landing perf chỉ 49,2 MiB. Mỗi dòng mang khóa băm và `hash_diff` dạng chuỗi hex 64 ký tự. Đây là giá trị gần như ngẫu nhiên nên Parquet hầu như không nén được, khác với các cột nghiệp vụ lặp lại nhiều. Đây là giải thích, chưa đo tách riêng phần khóa băm. Lưu hash dạng nhị phân 32 byte sẽ giảm khoảng một nửa phần này, nhưng quy tắc hash đã chốt (FR-06) nên không đổi.
 
 **Theo dõi hiện diện.** Satellite chỉ lưu thay đổi, nên "không có dòng mới" không cho biết khoản vay có được báo cáo tháng đó hay không. `xts_loan` và `xts_loan_servicer` (macro `xts`) ghi mỗi lần khoản vay và cặp khoản vay–servicer xuất hiện trong một lần giao (DV-08).
 
-**Gom lô kỳ** (R-34). Mỗi lần `dbt build` có khoảng 100 câu SQL chi phí cố định. Tầng Raw Vault nhận một lô các kỳ liên tiếp đã sẵn sàng (tối đa 40 kỳ, cấu hình `max_periods_per_batch`) trong một lần build. Trong TN1 p100, Raw Vault chạy 3–5 lô cho 29 kỳ; số lô phụ thuộc thời điểm các kỳ qua cổng chất lượng (mục 5.3). TN2 (mục 5.4) xác nhận nạp một lô nhiều kỳ cho cùng số dòng với nạp từng kỳ.
+**Gom lô kỳ** (R-34). Mỗi lần `dbt build` có khoảng 100 câu SQL chi phí cố định. Tầng Raw Vault nhận một lô các kỳ liên tiếp đã sẵn sàng (tối đa 40 kỳ, cấu hình `max_periods_per_batch`) trong một lần build. Trong TN1, Raw Vault chạy 2–6 lô cho 29 kỳ; số lô phụ thuộc thời điểm các kỳ qua cổng chất lượng (mục 5.3). TN2 (mục 5.4) xác nhận nạp một lô nhiều kỳ cho cùng số dòng với nạp từng kỳ.
 
 ### 4.7. Business Vault và PIT
 
@@ -247,7 +247,7 @@ PIT nạp tăng dần: mỗi lần chỉ xử lý các mốc chưa có (`LEFT AN
 
 ### 4.8. Gold và xuất PostgreSQL
 
-`fact_loan_month` có hạt một khoản vay × một tháng báo cáo có quan sát perf. Lưới lấy từ `xts_loan` nguồn perf, ghép năm Satellite và Business Vault bằng equi-join qua con trỏ PIT. `dim_loan` giữ từng phiên bản khởi tạo; fact trỏ đúng phiên bản tại mốc, nên đợt sửa tới sau không đổi nhóm điểm tín dụng/LTV/DTI đã gán cho tháng cũ. Gold là bảng Delta dựng lại toàn bộ từ Vault mỗi lần: đơn giản và tái lập được, đổi lại phải quét lại fact (52,9 giây trên bộ mẫu).
+`fact_loan_month` có hạt một khoản vay × một tháng báo cáo có quan sát perf. Lưới lấy từ `xts_loan` nguồn perf, ghép năm Satellite và Business Vault bằng equi-join qua con trỏ PIT. `dim_loan` giữ từng phiên bản khởi tạo; fact trỏ đúng phiên bản tại mốc, nên đợt sửa tới sau không đổi nhóm điểm tín dụng/LTV/DTI đã gán cho tháng cũ. Gold là bảng Delta dựng lại toàn bộ từ Vault mỗi lần: đơn giản và tái lập được, đổi lại phải quét lại fact (51,2 giây trên bộ mẫu).
 
 Export ([export.py](../ingestion/export.py)) ghi từng mart vào schema `export_stage` bằng Spark JDBC, đối soát số dòng với Delta, rồi thay nội dung `serving.*` trong **một** transaction PostgreSQL. Lỗi trước commit giữ nguyên bản đang phục vụ. Khóa advisory `gold_publication` và cờ `ready` chặn export đọc Gold đang dựng dở hoặc chưa qua dbt test. Đây không phải transaction phân tán bao trùm Spark và PostgreSQL; nhật ký tầng và khả năng chạy lại vẫn cần.
 
@@ -305,8 +305,8 @@ Theo R-38, năm thực nghiệm chạy trên bộ mẫu và tập con của nó,
 | --- | --- |
 | Máy | WSL2, 12 GiB RAM, Docker Engine trong Ubuntu |
 | Phiên bản | Spark 3.5.5, Delta 3.3.2, dbt-core 1.12.5, dbt-spark 1.11.0, AutomateDV (shim R-26), Airflow 3.3.2 |
-| Thrift Server | `local[4]`, driver 3 GiB, container 4 GiB; job PySpark trong container scheduler, driver 3 GiB |
-| Spark | `spark.sql.shuffle.partitions = 16`; dbt 2 luồng; cấu hình như mốc C4 |
+| Thrift Server | `local[4]`, driver 2,5 GiB, container 4 GiB, tự khởi động lại khi bị kill (R-39, SP-09); job PySpark trong container scheduler, driver 3 GiB |
+| Spark | `spark.sql.shuffle.partitions = 16`; dbt 2 luồng; như mốc C4, trừ heap Thrift |
 | Quy tắc đo | Một lần khởi động bị loại, ba lần đo; báo trung vị và min–max. Bấm giờ quanh action (ghi `noop`, aggregate) hoặc lấy từ `run_results.json` của dbt. TN1 dựng stack và lake mới mỗi lần đo nên không có lần loại |
 | Hạn chế đo | Không xóa được page cache của hệ điều hành trong WSL: các lần đọc sau có thể nhanh hơn lần đầu. Một máy, không có cụm |
 
@@ -328,19 +328,21 @@ Mỗi thực nghiệm có một phép kiểm đúng đi kèm, để so sánh t�
 
 | Tập | Khoản vay | Dòng perf | End-to-end (giây) | Ingest | Quality | Raw Vault | Business Vault | Gold | Export |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| p25 | 12.650 | 494.358 | 687,3 (665,0–721,0) | 126,5 | 366,4 | 231,3 (146–424) | 41,3 | 29,2 | 22,6 |
-| p50 | 25.054 | 973.075 | 783,7 (752,8–795,4) | 127,3 | 418,5 | 341,9 (342–464) | 55,2 | 35,9 | 27,0 |
-| p100 | 50.000 | 1.934.614 | 834,1 (823,0–869,4) | 136,5 | 415,4 | 307,0 (304–468) | 73,6 | 52,9 | 33,6 |
+| p25 | 12.650 | 494.358 | 715,3 (684,1–715,7) | 120,8 | 425,4 | 429,1 (362–431) | 38,5 | 27,7 | 22,2 |
+| p50 | 25.054 | 973.075 | 743,9 (692,9–746,3) | 126,5 | 372,4 | 259,7 (238–322) | 54,7 | 39,9 | 26,4 |
+| p100 | 50.000 | 1.934.614 | 794,6 (764,7–803,8) | 132,9 | 355,8 | 196,6 (178–219) | 67,3 | 51,2 | 31,1 |
 
 ![TN1](../experiments/results/tn1_scale.png)
 
-**Kết quả.** Khối lượng tăng 3,9 lần (494 nghìn lên 1,93 triệu dòng perf) nhưng thời gian toàn pipeline chỉ tăng 21% (687 lên 834 giây). Ở quy mô sample, pipeline bị chi phối bởi chi phí cố định, không bởi dữ liệu:
+**Kết quả.** Khối lượng tăng 3,9 lần (494 nghìn lên 1,93 triệu dòng perf) nhưng thời gian toàn pipeline chỉ tăng 11% (715 lên 795 giây). Ở quy mô sample, pipeline bị chi phối bởi chi phí cố định, không bởi dữ liệu:
 
-- **Ingest và quality gần như không đổi** theo quy mô (127–137 giây; 366–418 giây). Hai tầng chạy 29 job PySpark nối tiếp nhau trong pool `spark_local` một slot, mỗi job trả chi phí khởi động Spark và ghi Delta. Quality nằm trên đường găng: các tầng sau chờ nó.
-- **Raw Vault dao động mạnh giữa các lần chạy** (146–468 giây) và đi theo **số lô**, không theo dữ liệu: tầng này nhận các kỳ sẵn sàng ngay khi quality xong từng phần, nên mỗi lần chạy chia 29 kỳ thành 2–6 lô tùy thời điểm, và mỗi lô trả khoảng 100 câu SQL chi phí cố định (R-34). Raw Vault chạy song song với quality nên phần lớn thời gian này không cộng vào end-to-end.
-- **Các tầng dựng lại toàn bộ tăng theo dữ liệu**: Business Vault 41 lên 74 giây, Gold 29 lên 53 giây, export 23 lên 34 giây (khoảng 1,5–1,8 lần khi dữ liệu tăng 3,9 lần). Đây là các tầng sẽ tăng trước tiên khi quy mô lớn hơn.
+- **Ingest gần như không đổi** theo quy mô (121–133 giây): 29 job PySpark nối tiếp nhau trong pool `spark_local` một slot, mỗi job trả chi phí khởi động Spark và ghi Delta. Quality cũng là 29 job như vậy và nằm trên đường găng: các tầng sau chờ nó.
+- **Raw Vault đi theo số lô, không theo dữ liệu, và còn ngược chiều quy mô**: p25 cần 6 lô (429 giây), p100 chỉ 2 lô (197 giây). Tầng này nhận các kỳ sẵn sàng ngay khi quality xong từng phần (R-34). Tập nhỏ thì quality xong mỗi kỳ nhanh hơn, Raw Vault được kích hoạt nhiều lần hơn với lô nhỏ hơn, và mỗi lô trả khoảng 100 câu SQL chi phí cố định. Raw Vault chạy song song với quality nên tranh CPU với nó: quality của p25 (425 giây) chậm hơn của p100 (356 giây) vì phải chia máy với 6 lô Raw Vault.
+- **Các tầng dựng lại toàn bộ tăng theo dữ liệu**: Business Vault 38 lên 67 giây, Gold 28 lên 51 giây, export 22 lên 31 giây (khoảng 1,4–1,8 lần khi dữ liệu tăng 3,9 lần). Đây là các tầng sẽ tăng trước tiên khi quy mô lớn hơn.
 
-Cả 9 lần chạy đều đạt AC-01, AC-05, AC-06, đủ 29 kỳ × 6 tầng, 0 lần FAILED. Giả thuyết ban đầu "thời gian tăng gần tuyến tính theo số dòng" không kiểm được ở quy mô này vì chi phí cố định lấn át; đây là kết luận về sample, không suy ra hành vi trên bộ đầy đủ. Lần nạp đầu ở mốc C4 (1.056,6 giây) cao hơn 834 giây ở đây; hai số đo khác thời điểm và trạng thái máy, không so trực tiếp.
+Cả 9 lần chạy đều đạt AC-01, AC-05, AC-06, đủ 29 kỳ × 6 tầng, 0 lần FAILED. Giả thuyết ban đầu "thời gian tăng gần tuyến tính theo số dòng" không kiểm được ở quy mô này vì chi phí cố định lấn át; đây là kết luận về sample, không suy ra hành vi trên bộ đầy đủ. Lần nạp đầu ở mốc C4 (1.056,6 giây) cao hơn 795 giây ở đây; hai số đo khác thời điểm, cấu hình heap và trạng thái máy, không so trực tiếp.
+
+**Lượt đo bị thay thế.** Lượt TN1 trước đó trên cùng code (05/11, 13:09–15:14) có một lần chạy p25 với 23 lượt FAILED ở Raw Vault, tự hồi phục nhờ cơ chế thử lại có giới hạn (PL-05), vẫn đủ 29 kỳ và đạt AC-01/05/06. Nguyên nhân không xác định được vì stack của lần đó đã bị xóa trước khi kiểm tra. TN1 được đo lại đủ 9 lần với tiến trình ghi lỗi chạy song song; lỗi không tái diễn. Số liệu lượt cũ lưu ở `data/reports/experiments/tn1_scale-luot2-co-loi.csv` (end-to-end trung vị 674/777/860 giây), không dùng cho bảng trên. Ghi nhận ở R-39.
 
 ### 5.4. TN2: nạp Raw Vault incremental so với full refresh
 
@@ -350,14 +352,14 @@ Cả 9 lần chạy đều đạt AC-01, AC-05, AC-06, đủ 29 kỳ × 6 tầng
 
 | Mốc (kỳ) | Incremental, 1 kỳ mới (giây) | Full refresh, k kỳ (giây) | Dòng Raw Vault | Incremental = full refresh |
 | --- | ---: | ---: | ---: | --- |
-| 4 | 41,5 (36,8–50,0) | 32,0 (28,5–34,2) | 1.157.018 | Có |
-| 12 | 35,0 (30,9–42,0) | 54,7 (48,6–55,9) | 3.725.857 | Có |
-| 20 | 37,5 (35,3–42,6) | 66,3 (56,7–72,2) | 5.053.981 | Có |
-| 29 | 35,6 (34,0–37,9) | 72,0 (65,7–72,5) | 6.339.116 | Có |
+| 4 | 37,0 (36,2–39,5) | 25,5 (25,2–34,8) | 1.157.018 | Có |
+| 12 | 35,0 (33,2–35,5) | 54,6 (48,4–56,9) | 3.725.857 | Có |
+| 20 | 36,4 (30,7–36,7) | 64,6 (63,4–66,1) | 5.053.981 | Có |
+| 29 | 35,1 (34,9–36,0) | 67,1 (63,3–70,7) | 6.339.116 | Có |
 
 ![TN2](../experiments/results/tn2_incremental.png)
 
-**Kết quả.** Nạp incremental một kỳ mới giữ gần như không đổi, 35–42 giây, dù lịch sử trong Raw Vault tăng từ 1,2 lên 6,3 triệu dòng. Full refresh tăng theo lịch sử: 32 giây ở 4 kỳ lên 72 giây ở 29 kỳ, gấp đôi incremental ở mốc cuối. Ở mốc 4 kỳ full refresh lại nhanh hơn: khi lịch sử còn ngắn, chi phí của nạp tăng dần (đọc bảng đích để so mỗi dòng mới với phiên bản mới nhất đang có, rồi `INSERT INTO` theo chiến lược `append` mặc định của dbt-spark) lớn hơn phần dữ liệu tiết kiệm được so với `CREATE OR REPLACE TABLE` của full refresh. Điểm giao nằm giữa 4 và 12 kỳ.
+**Kết quả.** Nạp incremental một kỳ mới giữ gần như không đổi, 35–37 giây (trung vị), dù lịch sử trong Raw Vault tăng từ 1,2 lên 6,3 triệu dòng. Full refresh tăng theo lịch sử: 25,5 giây ở 4 kỳ lên 67,1 giây ở 29 kỳ, gần gấp đôi incremental ở mốc cuối. Ở mốc 4 kỳ full refresh lại nhanh hơn: khi lịch sử còn ngắn, chi phí của nạp tăng dần (đọc bảng đích để so mỗi dòng mới với phiên bản mới nhất đang có, rồi `INSERT INTO` theo chiến lược `append` mặc định của dbt-spark) lớn hơn phần dữ liệu tiết kiệm được so với `CREATE OR REPLACE TABLE` của full refresh. Điểm giao nằm giữa 4 và 12 kỳ.
 
 Phép kiểm đúng quan trọng hơn con số thời gian: ở cả 4 mốc, full refresh một lô k kỳ cho đúng số dòng từng bảng như nạp tuần tự đến kỳ k. Điều này xác nhận macro `sat` xử lý đúng nhiều `load_date` trong một lô (R-26, R-34), và là cơ sở để tầng Raw Vault gom lô kỳ mà không đổi kết quả. Dung lượng hai cách tương đương (681 MiB ở 29 kỳ).
 
@@ -369,14 +371,14 @@ Phép kiểm đúng quan trọng hơn con số thời gian: ở cả 4 mốc, fu
 
 | Kịch bản | Cách | Giây (trung vị) | Dòng SQL | Join | Exchange | Window |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Mọi khoản vay × mọi mốc (1.934.614 dòng) | PIT | 3,54 | 6 | 4 | 6 | 0 |
-| | Join trực tiếp | 16,97 | 35 | 8 | 12 | 4 |
-| Một mốc 07/2020 (43.119 dòng) | PIT | 2,12 | 7 | 4 | 6 | 0 |
-| | Join trực tiếp | 2,48 | 35 | 8 | 12 | 4 |
+| Mọi khoản vay × mọi mốc (1.934.614 dòng) | PIT | 3,18 | 6 | 4 | 6 | 0 |
+| | Join trực tiếp | 17,65 | 35 | 8 | 12 | 4 |
+| Một mốc 07/2020 (43.119 dòng) | PIT | 2,05 | 7 | 4 | 6 | 0 |
+| | Join trực tiếp | 2,21 | 35 | 8 | 12 | 4 |
 
 ![TN4](../experiments/results/tn4_pit.png)
 
-**Kết quả.** PIT cho câu lệnh ngắn hơn gần 6 lần (6 so với 35 dòng SQL), chỉ có equi-join, không có cửa sổ, và nhanh hơn 4,8 lần khi lấy trạng thái mọi khoản vay ở mọi mốc. Lý do: join trực tiếp ghép mỗi (khoản vay, mốc) với **mọi** phiên bản có `load_date` không vượt mốc. Với `sat_loan_balance` đổi hằng tháng, một khoản vay có m tháng sinh khoảng m²/2 cặp trung gian trước khi `ROW_NUMBER` giữ lại một. Khi chỉ hỏi một mốc, lưới nhỏ (43 nghìn dòng) nên hai cách gần như ngang nhau (2,12 và 2,48 giây). Lợi ích của PIT lớn nhất ở truy vấn quét nhiều mốc, như dựng `fact_loan_month`. Đổi lại, PIT phải được dựng và lưu: 254,2 MiB, 73,6 giây cho tầng Business Vault ở p100 (gồm cả hai Satellite tính toán).
+**Kết quả.** PIT cho câu lệnh ngắn hơn gần 6 lần (6 so với 35 dòng SQL), chỉ có equi-join, không có cửa sổ, và nhanh hơn 5,6 lần khi lấy trạng thái mọi khoản vay ở mọi mốc. Lý do: join trực tiếp ghép mỗi (khoản vay, mốc) với **mọi** phiên bản có `load_date` không vượt mốc. Với `sat_loan_balance` đổi hằng tháng, một khoản vay có m tháng sinh khoảng m²/2 cặp trung gian trước khi `ROW_NUMBER` giữ lại một. Khi chỉ hỏi một mốc, lưới nhỏ (43 nghìn dòng) nên hai cách gần như ngang nhau (2,05 và 2,21 giây). Lợi ích của PIT lớn nhất ở truy vấn quét nhiều mốc, như dựng `fact_loan_month`. Đổi lại, PIT phải được dựng và lưu: 254,2 MiB, 67,3 giây cho tầng Business Vault ở p100 (gồm cả hai Satellite tính toán).
 
 ### 5.6. TN6: tách Satellite theo tốc độ thay đổi
 
@@ -394,8 +396,8 @@ Phép kiểm đúng quan trọng hơn con số thời gian: ở cả 4 mốc, fu
 
 | Truy vấn lịch sử quá hạn | Giây (trung vị) | Dòng kết quả |
 | --- | ---: | ---: |
-| Từ Satellite tách (đọc thẳng `sat_loan_delinquency`) | 0,60 | 109.998 |
-| Từ Satellite gộp (lọc thay đổi bằng `LAG`) | 1,28 | 109.998 |
+| Từ Satellite tách (đọc thẳng `sat_loan_delinquency`) | 0,51 | 109.998 |
+| Từ Satellite gộp (lọc thay đổi bằng `LAG`) | 1,16 | 109.998 |
 
 ![TN6](../experiments/results/tn6_split.png)
 
@@ -403,8 +405,8 @@ Phép kiểm đúng quan trọng hơn con số thời gian: ở cả 4 mốc, fu
 
 - **Số dòng:** đúng. Satellite gộp có phiên bản mới mỗi khi bất kỳ nhóm nào đổi; dư nợ đổi hằng tháng nên nó có đúng số dòng của `sat_loan_balance`. Tách ra, thuộc tính quá hạn chỉ cần 5,7% số dòng, thuộc tính kết thúc 5,2%.
 - **Dung lượng:** không. Tổng ba bảng tách (160,4 MiB) lớn hơn bảng gộp (151,6 MiB) 5,8%. Parquet nén theo cột, nên các giá trị quá hạn lặp lại hàng triệu lần trong bảng gộp gần như không tốn chỗ; còn ba bảng tách mỗi bảng phải lưu lại khóa băm, `hash_diff` và metadata 64 ký tự.
-- **Dựng:** bảng gộp nhanh hơn (20,1 so với 56,4 giây tổng thời gian ba model, trung vị), vì chỉ một lần so `hash_diff` và một lần ghi thay vì ba.
-- **Truy vấn lịch sử thuộc tính ít đổi:** bảng tách nhanh hơn 2,1 lần (0,60 so với 1,28 giây) và đơn giản hơn, vì không phải lọc thay đổi bằng hàm cửa sổ.
+- **Dựng:** bảng gộp nhanh hơn (14,0 so với 53,6 giây tổng thời gian ba model, trung vị), vì chỉ một lần so `hash_diff` và một lần ghi thay vì ba.
+- **Truy vấn lịch sử thuộc tính ít đổi:** bảng tách nhanh hơn 2,3 lần (0,51 so với 1,16 giây) và đơn giản hơn, vì không phải lọc thay đổi bằng hàm cửa sổ.
 
 Như vậy, trên Delta/Parquet, lý do tách Satellite theo tốc độ thay đổi là mô hình rõ ràng và truy vấn lịch sử từng nhóm thuộc tính, không phải tiết kiệm dung lượng. Trên lưu trữ dạng dòng, kết luận về dung lượng có thể khác; dự án không đo điều đó.
 
@@ -416,28 +418,28 @@ TN7 đo trực tiếp các quyết định ở mục 4.2–4.3: (a) chi phí d�
 
 | Phép đo | Giá trị (trung vị 3 lần) |
 | --- | ---: |
-| Dựng landing cho cả bộ mẫu (orig, perf, `loan_first_month`) | 8,93 giây |
-| Lát Bronze một kỳ, đọc thẳng TXT (4 kỳ) | 2,73–2,87 giây |
-| Lát Bronze một kỳ, qua landing (4 kỳ) | 0,38–0,70 giây |
-| Đọc cả file perf: text + split / reader CSV có cột lỗi | 0,87 / 0,92 giây |
+| Dựng landing cho cả bộ mẫu (orig, perf, `loan_first_month`) | 8,69 giây |
+| Lát Bronze một kỳ, đọc thẳng TXT (4 kỳ) | 2,75–2,86 giây |
+| Lát Bronze một kỳ, qua landing (4 kỳ) | 0,35–0,70 giây |
+| Đọc cả file perf: text + split / reader CSV có cột lỗi | 0,87 / 1,03 giây |
 | Dòng sai số trường phát hiện được: text + split / CSV có cột lỗi / CSV mặc định | 20 / 20 / 0 trên 20 |
 | Perf: TXT → landing → quality clean | 211,4 → 49,2 → 57,7 MiB |
 | Số file perf: landing / Bronze / quality clean | 87 / 87 / 464 |
 
 ![TN7 dung lượng](../experiments/results/tn7_storage.png)
 
-**Kết quả.** Landing nhanh hơn 4–7 lần mỗi kỳ và hoàn vốn chi phí dựng (8,9 giây) ngay trong 29 kỳ của bộ mẫu; quan trọng hơn, khối lượng đọc mỗi kỳ không còn phụ thuộc kích thước file nguồn. Hai reader có tốc độ tương đương; khác biệt nằm ở bằng chứng lỗi: reader CSV mặc định làm mất hoàn toàn dấu hiệu sai số trường, còn cấu hình cột lỗi thì phát hiện được nhưng biến đổi giá trị trường (mục 4.2). Dung lượng cho thấy nén cột giảm perf 4,3 lần ở landing; các tầng thêm khóa băm (Raw Vault, PIT) lại lớn hơn nguồn (mục 4.6); `quality.perf_clean` tách thành 464 file nhỏ do ghi đè theo kỳ (mục 4.4).
+**Kết quả.** Landing nhanh hơn 4–8 lần mỗi kỳ và hoàn vốn chi phí dựng (8,7 giây) ngay trong 29 kỳ của bộ mẫu; quan trọng hơn, khối lượng đọc mỗi kỳ không còn phụ thuộc kích thước file nguồn. Hai reader có tốc độ tương đương; khác biệt nằm ở bằng chứng lỗi: reader CSV mặc định làm mất hoàn toàn dấu hiệu sai số trường, còn cấu hình cột lỗi thì phát hiện được nhưng biến đổi giá trị trường (mục 4.2). Dung lượng cho thấy nén cột giảm perf 4,3 lần ở landing; các tầng thêm khóa băm (Raw Vault, PIT) lại lớn hơn nguồn (mục 4.6); `quality.perf_clean` tách thành 464 file nhỏ do ghi đè theo kỳ (mục 4.4).
 
 ### 5.8. Tổng hợp
 
 | Quyết định thiết kế | Thực nghiệm | Kết quả trên bộ mẫu | Kiểm đúng |
 | --- | --- | --- | --- |
-| Landing Delta phân vùng tháng (R-28) | TN7 b | Lát Bronze một kỳ nhanh hơn 4–7 lần; dựng landing 8,9 giây, hoàn vốn trong 29 kỳ | Cùng số dòng |
+| Landing Delta phân vùng tháng (R-28) | TN7 b | Lát Bronze một kỳ nhanh hơn 4–8 lần; dựng landing 8,7 giây, hoàn vốn trong 29 kỳ | Cùng số dòng |
 | Đọc text + split (R-27, SP-06) | TN7 c | Giữ đủ bằng chứng 20/20 dòng sai trường; CSV mặc định 0/20; tốc độ tương đương | File cài lỗi |
-| Nạp Raw Vault incremental (R-08, R-26) | TN2 | Phẳng 35–42 giây; full refresh 32 → 72 giây khi lịch sử dài ra | Cùng số dòng ở 4 mốc |
-| PIT (R-31, R-33) | TN4 | 4,8 lần nhanh hơn khi quét mọi mốc; câu lệnh ngắn 6 lần; một mốc thì ngang | Cùng checksum |
-| Tách Satellite (DV-07, P2) | TN6 | −94% số dòng thuộc tính ít đổi, truy vấn lịch sử nhanh 2,1 lần; dung lượng tổng +5,8%, dựng chậm hơn | Cùng checksum |
-| Kiến trúc tổng thể | TN1 | Dữ liệu ×3,9 → thời gian +21%; chi phí cố định chi phối; Business Vault, Gold, export tăng theo dữ liệu | AC-01, AC-05, AC-06 ở 9/9 lần |
+| Nạp Raw Vault incremental (R-08, R-26) | TN2 | Phẳng 35–37 giây; full refresh 25,5 → 67,1 giây khi lịch sử dài ra | Cùng số dòng ở 4 mốc |
+| PIT (R-31, R-33) | TN4 | 5,6 lần nhanh hơn khi quét mọi mốc; câu lệnh ngắn 6 lần; một mốc thì ngang | Cùng checksum |
+| Tách Satellite (DV-07, P2) | TN6 | −94% số dòng thuộc tính ít đổi, truy vấn lịch sử nhanh 2,3 lần; dung lượng tổng +5,8%, dựng chậm hơn | Cùng checksum |
+| Kiến trúc tổng thể | TN1 | Dữ liệu ×3,9 → thời gian +11%; chi phí cố định chi phối; Business Vault, Gold, export tăng theo dữ liệu | AC-01, AC-05, AC-06 ở 9/9 lần |
 
 Kết quả có hai điểm không như giả thuyết ban đầu và được giữ nguyên trong báo cáo: tách Satellite không tiết kiệm dung lượng trên Parquet (TN6), và reader CSV có thể phát hiện sai số trường nếu cấu hình cột lỗi (TN7 c), nên lý do chọn text + split là giữ giá trị theo vị trí và gắn lý do lỗi theo luật, không phải "CSV không phát hiện được".
 
@@ -535,10 +537,10 @@ Cần giữ cả giai đoạn đầu trong biểu đồ: CPR 02/2019 khoảng 73
 
 1. **Đọc text rồi tự tách trường** giữ được bằng chứng sai số trường mà reader CSV mặc định làm mất; reader CSV chỉ phát hiện được khi cấu hình cột lỗi, và khi đó giá trị các trường đã bị biến đổi (TN7 c).
 2. **Landing Delta phân vùng theo tháng** đổi một chi phí dựng một lần lấy việc mỗi kỳ chỉ đọc 3 file tháng thay vì quét cả file nguồn (TN7 a, b).
-3. **Nạp tăng dần Raw Vault** cho cùng số dòng với dựng lại toàn bộ ở mọi mốc; thời gian nạp một kỳ mới gần như không đổi khi lịch sử dài ra, còn dựng lại toàn bộ chậm dần (35,6 so với 72,0 giây ở 29 kỳ) (TN2).
-4. **PIT** biến truy vấn trạng thái tại mốc thành 4 equi-join, nhanh hơn 4,8 lần so với join as-of trực tiếp khi quét mọi mốc, và ngang nhau khi chỉ hỏi một mốc (TN4).
-5. **Tách Satellite theo tốc độ thay đổi** giảm 94% số dòng của thuộc tính ít đổi và làm truy vấn lịch sử của chúng nhanh hơn 2,1 lần, nhưng không giảm tổng dung lượng (lớn hơn 5,8%) và dựng chậm hơn, vì Parquet nén cột tốt các giá trị lặp lại (TN6).
-6. **Chi phí cố định** chiếm phần lớn thời gian ở quy mô sample: dữ liệu tăng 3,9 lần, pipeline chỉ chậm thêm 21% (687 lên 834 giây); các tầng dựng lại toàn bộ (Business Vault, Gold, export) là các tầng tăng theo dữ liệu (TN1).
+3. **Nạp tăng dần Raw Vault** cho cùng số dòng với dựng lại toàn bộ ở mọi mốc; thời gian nạp một kỳ mới gần như không đổi khi lịch sử dài ra, còn dựng lại toàn bộ chậm dần (35,1 so với 67,1 giây ở 29 kỳ) (TN2).
+4. **PIT** biến truy vấn trạng thái tại mốc thành 4 equi-join, nhanh hơn 5,6 lần so với join as-of trực tiếp khi quét mọi mốc, và ngang nhau khi chỉ hỏi một mốc (TN4).
+5. **Tách Satellite theo tốc độ thay đổi** giảm 94% số dòng của thuộc tính ít đổi và làm truy vấn lịch sử của chúng nhanh hơn 2,3 lần, nhưng không giảm tổng dung lượng (lớn hơn 5,8%) và dựng chậm hơn, vì Parquet nén cột tốt các giá trị lặp lại (TN6).
+6. **Chi phí cố định** chiếm phần lớn thời gian ở quy mô sample: dữ liệu tăng 3,9 lần, pipeline chỉ chậm thêm 11% (715 lên 795 giây); các tầng dựng lại toàn bộ (Business Vault, Gold, export) là các tầng tăng theo dữ liệu (TN1).
 
 FR-14 minh họa giá trị chính của Data Vault trong bài toán: đợt sửa dữ liệu thêm phiên bản mới, phiên bản cũ còn truy vấn được qua PIT, trong khi bảng đối chứng SCD1 chỉ còn giá trị mới.
 
