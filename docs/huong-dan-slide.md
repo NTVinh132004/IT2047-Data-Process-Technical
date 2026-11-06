@@ -2,7 +2,7 @@
 
 Bộ slide gồm 20 trang theo sườn Mở đầu, Chương 1–5; dùng số liệu sample 2019 đã đối soát ngày 31/10/2026 và kết quả
 thực nghiệm C5 trên sample (R-38, `experiments/results/`). Báo cáo chính:
-[bao-cao-do-an.md](bao-cao-do-an.md).
+[bao-cao-do-an.md](bao-cao-do-an.md). Lời nói từng trang, kịch bản demo và câu hỏi vấn đáp: [kich-ban-thuyet-trinh.md](kich-ban-thuyet-trinh.md).
 
 ## Mở sản phẩm
 

@@ -114,4 +114,4 @@ Hạn chế phân tích: tên `OTHER` gộp nhiều tổ chức; SMM/CPR không 
 
 Hướng phát triển, chạy bộ đầy đủ với lake/volume riêng (không thuộc nghiệm thu, R-38): [Chạy historical](docs/chay-historical.md).
 
-Bộ bàn giao: [Báo cáo kỹ thuật](docs/bao-cao-do-an.md) · [Slide và cách mở/tái sinh](docs/huong-dan-slide.md).
+Bộ bàn giao: [Báo cáo kỹ thuật](docs/bao-cao-do-an.md) · [Slide và cách mở/tái sinh](docs/huong-dan-slide.md) · [Kịch bản thuyết trình](docs/kich-ban-thuyet-trinh.md).
