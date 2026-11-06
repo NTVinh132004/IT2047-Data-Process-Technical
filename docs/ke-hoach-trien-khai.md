@@ -213,9 +213,11 @@ Thiết kế C4: `Review.md` R-36. Gold gồm bảng snapshot tái dựng từ V
 
 **Giai đoạn 6: Phân tích và code freeze (tuần 7)**
 
-- [ ] Hoàn thiện notebook trả lời 5 câu hỏi nghiệp vụ (dashboard Metabase đã cắt, R-25)
-- [ ] (Mở rộng) vintage 2007 hoặc demo mô hình dự báo
-- [ ] **Code freeze cuối tuần 7:** nghiệm thu thực nghiệm; sau mốc này chỉ sửa lỗi
+- [x] Hoàn thiện notebook trả lời 5 câu hỏi nghiệp vụ (dashboard Metabase đã cắt, R-25); `make notebook`, 8 biểu đồ, kiểm ở C4 `ac08`
+- [ ] (Mở rộng) vintage 2007 hoặc demo mô hình dự báo: không làm, hướng phát triển (R-38)
+- [x] **Code freeze 06/11/2026** tại commit `63bb5fa`: nghiệm thu thực nghiệm (C5); sau mốc này chỉ sửa lỗi và tài liệu
+
+**Cổng C6 đạt 06/11/2026:** `make verify-clean` 89/89 kiểm tra (C0–C5 và unit test) trong 3.958,5 giây trên clone của commit `63bb5fa`, lake ban đầu chưa tồn tại, volume Docker mới; lần nạp đầu 950,0 giây. Snapshot code `source_digest` `efe178c4…` (gồm cả file chưa track `scripts/build_sample_docs.py`, không dùng trong pipeline). Mỗi thực nghiệm có phần giải thích (báo cáo chương 5); notebook trả lời đủ 5 câu hỏi. Bằng chứng: `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json`, `clean-tests.log`. Hai lượt C6 trước không thành: lượt đầu Thrift OOM-kill (R-39), lượt sau treo vì Windows ngủ khi đang chạy (R-39, sự cố vận hành).
 
 **Giai đoạn 7: Hoàn thiện (tuần 8)**
 

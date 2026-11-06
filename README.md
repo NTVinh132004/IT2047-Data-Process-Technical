@@ -7,7 +7,7 @@ Tài liệu: [Báo cáo trên sample](docs/bao-cao-do-an.md) · [PRD](docs/PRD.m
 
 ## Trạng thái
 
-**05/11/2026 (R-38, PRD 1.9):** phạm vi nghiệm thu cuối là bộ mẫu. Cổng C0–C4 đạt (30/10/2026, 69/69 kiểm tra trên clone sạch, R-36). Năm thực nghiệm C5 (TN1 quy mô, TN2 incremental, TN4 PIT, TN6 tách Satellite, TN7 kỹ thuật nạp) chạy trên bộ mẫu và tập con, mỗi cấu hình 3 lần đo, kết quả thô ở `experiments/results/`. Báo cáo: [docs/bao-cao-do-an.md](docs/bao-cao-do-an.md). Bộ đầy đủ là hướng phát triển ([docs/chay-historical.md](docs/chay-historical.md)).
+**06/11/2026 (PRD 1.9):** phạm vi nghiệm thu cuối là bộ mẫu (R-38). Cổng C0–C6 đạt: C6 là `make verify-clean` 89/89 kiểm tra trên clone sạch của code freeze `63bb5fa`. Năm thực nghiệm C5 (TN1 quy mô, TN2 incremental, TN4 PIT, TN6 tách Satellite, TN7 kỹ thuật nạp) chạy trên bộ mẫu và tập con, mỗi cấu hình 3 lần đo, kết quả thô ở `experiments/results/`. Báo cáo: [docs/bao-cao-do-an.md](docs/bao-cao-do-an.md). Bộ đầy đủ là hướng phát triển ([docs/chay-historical.md](docs/chay-historical.md)).
 
 ## Yêu cầu máy
 
@@ -61,6 +61,8 @@ Kết quả mỗi lần chạy cổng được lưu ở `tests/gates/results/`.
 
 ```bash
 make down                 # stack sample và stack thực nghiệm không chạy cùng lúc (RAM 12 GB)
+# Lệnh dài (experiments, verify-clean): tắt chế độ ngủ của Windows và chạy tách phiên, ví dụ
+#   setsid nohup make experiments > data/reports/experiments/run.log 2>&1 < /dev/null &
 make experiments          # khoảng 3 giờ: tập con p25/p50, rồi TN1, TN4, TN7, TN6, TN2
 make experiment-charts    # biểu đồ PNG trong experiments/results/
 make gate N=5             # kiểm đủ lần đo, phép kiểm đúng, biểu đồ, digest code
