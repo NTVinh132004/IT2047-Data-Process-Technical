@@ -261,7 +261,7 @@ R-36 làm rõ kiểm chứng nghiệp vụ: SMM/CPR dùng DOUBLE để tránh gi
 
 ### Kết quả nghiệm thu R-36
 
-Ngày 30/10/2026, `make verify-clean` đạt **69/69** (C0 6, C1 7, C2 9, C3 7, C4 10, unit 30) trên clone snapshot code, lake ban đầu chưa tồn tại và volume Docker mới sau `down -v`. C4 không bỏ qua kiểm tra nào: `passed=true`, AC-07 ghi hash snapshot `e0ba6679c610248dfcb4fb049926d48b2c349b7327796c092496462da2b6e48e`. Code chưa commit; kết quả gắn với commit nền `46b54b8`, cờ `uncommitted_changes=true` và hash trên, không coi commit nền là toàn bộ code C4.
+Ngày 30/10/2026, `make verify-clean` đạt **69/69** (C0 6, C1 7, C2 9, C3 7, C4 10, unit 30) trên clone snapshot code, lake ban đầu chưa tồn tại và volume Docker mới sau `down -v`. C4 không bỏ qua kiểm tra nào: `passed=true`, AC-07 ghi hash snapshot `e0ba6679c610248dfcb4fb049926d48b2c349b7327796c092496462da2b6e48e`. Code chưa commit; kết quả gắn với commit nền `6f61f17`, cờ `uncommitted_changes=true` và hash trên, không coi commit nền là toàn bộ code C4.
 
 - AC-05: đủ 87 tháng, 0 tháng lệch dư nợ/số dòng; oracle mart từ TXT có 0 tổng tháng sai.
 - PostgreSQL bằng Delta: `mart_delinquency` 1.026.938 dòng, `mart_prepayment` 87, `mart_covid_forbearance` 229.
@@ -387,11 +387,11 @@ Khi chạy thử (EP-04, tập p25) phát hiện và sửa: lệnh `CLEAR CACHE`
 
 Sau khi đo phát hiện hàm `code_digest` băm cả file bị gitignore (gói dbt của spike, wheel trong `docker/airflow/wheels/`), không có trong bản clone sạch, nên C5 sẽ trượt ở C6 dù code không đổi. Trước khi sửa đã xác nhận digest của cây hiện tại vẫn bằng digest lúc đo (`d17a5dc0…`); sau đó hàm chỉ băm file git nhìn thấy, và `manifest.json` ghi digest mới `a962deab…` kèm `measured_code_digest` cũ và lý do. Không đo lại vì code được đo không đổi.
 
-Rà C7 (05/11/2026): `tests/gates/results/c3-20261030-100553.json` (commit `59d9042`) chứa 3 mã khoản vay thật kèm điểm tín dụng trong mục `ac09.sample`; đã thay bằng `<đã ẩn, EP-08>` ở bản làm việc. Test C3 hiện tại không còn ghi mã khoản vay. Lịch sử git vẫn chứa bản cũ; repo chưa có remote, việc viết lại lịch sử để xóa hẳn do chủ repo quyết định. Unit test mới của R-38 đổi sang mã giả lập. Bản clone C6 được chụp trước hai sửa đổi chỉ-test này.
+Rà C7 (05/11/2026): `tests/gates/results/c3-20261030-100553.json` (commit `db7d01a`) chứa 3 mã khoản vay thật kèm điểm tín dụng trong mục `ac09.sample`; đã thay bằng `<đã ẩn, EP-08>` ở bản làm việc. Test C3 hiện tại không còn ghi mã khoản vay. Lịch sử git vẫn chứa bản cũ; repo chưa có remote, việc viết lại lịch sử để xóa hẳn do chủ repo quyết định. Unit test mới của R-38 đổi sang mã giả lập. Bản clone C6 được chụp trước hai sửa đổi chỉ-test này.
 
 ## R-39 — Thrift Server bị OOM-kill trên clone sạch (05/11/2026)
 
-**Hiện tượng.** Lượt `make verify-clean` (C6) sau commit `d399fae`: cổng C1 `test_rerun_period_idempotent` trượt. Khi chạy lại kỳ 2020Q1, tầng gold lỗi `failed to resolve sockaddr for spark-thrift:10000`. Container `spark-thrift` dừng với `OOMKilled=true`, exit 137, sau khoảng 19 phút chạy (đã qua lần nạp đủ 29 kỳ và đang chạy dbt test của Gold). Container không tự khởi động lại, nên mọi tầng dbt sau đó thất bại tới hết số lần thử. Lượt C6 bị dừng có chủ đích để không tốn thêm khoảng 1 giờ cho các cổng chắc chắn trượt.
+**Hiện tượng.** Lượt `make verify-clean` (C6) sau commit `f08513d`: cổng C1 `test_rerun_period_idempotent` trượt. Khi chạy lại kỳ 2020Q1, tầng gold lỗi `failed to resolve sockaddr for spark-thrift:10000`. Container `spark-thrift` dừng với `OOMKilled=true`, exit 137, sau khoảng 19 phút chạy (đã qua lần nạp đủ 29 kỳ và đang chạy dbt test của Gold). Container không tự khởi động lại, nên mọi tầng dbt sau đó thất bại tới hết số lần thử. Lượt C6 bị dừng có chủ đích để không tốn thêm khoảng 1 giờ cho các cổng chắc chắn trượt.
 
 **Nguyên nhân.** Container giới hạn 4 GiB nhưng heap driver 3 GiB, chỉ còn 1 GiB cho bộ nhớ ngoài heap (metaspace, direct buffer của Parquet/Delta, luồng Thrift). Đây là cùng loại lỗi đã gặp với bộ đầy đủ (mục OOM historical ở trên): kill ở giới hạn cgroup, không phải `OutOfMemoryError` của Java. Trên sample lỗi không tất định: 9 lần TN1, các lượt TN2–TN7 và lượt clone R-36 không bị.
 
@@ -413,5 +413,22 @@ Trong lượt đo đầu sau R-39, 8/9 lần TN1 sạch; lần p25 thứ ba có 
 
 Lượt C6 thứ hai (05/11, từ 18:08) đạt 34 kiểm tra rồi treo ở `test_rerun_only_new_layers_preserves_gold_and_export` khoảng 4,5 giờ, đến khi máy khởi động lại. Không phải lỗi pipeline: log Airflow của clone (volume còn giữ vì `verify-clean` bị ngắt trước bước dọn) cho thấy lượt lập lịch 5 phút nhảy từ 19:05 sang 20:05 và từ 20:10 sang 00:45, task gold của lượt 20:10 chỉ bắt đầu lúc 00:42:26; tức Windows đã ngủ, WSL bị treo theo. Dòng FAILED duy nhất (run 195) là lỗi cố ý của test `inject_test_failure` (FR-22). Tiến trình ghi lỗi của lượt đó không ghi được vì lỗi trích dẫn trong câu SQL; đã sửa.
 
-Lượt thứ ba (06/11, 01:52–02:58), chế độ ngủ khi cắm sạc tắt, chạy tách khỏi phiên Claude Code: **89/89 đạt** trong 3.958,5 giây trên clone của commit `63bb5fa` (code freeze). Dòng FAILED duy nhất lại là run 195 của `inject_test_failure`. Container Thrift chạm 3,83/4 GiB lúc cao nhất nhưng không bị kill. Bằng chứng: `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json` (không commit). Ghi chú vận hành: lệnh dài cần tắt chế độ ngủ của Windows và chạy tách khỏi phiên (README).
+Lượt thứ ba (06/11, 01:52–02:58), chế độ ngủ khi cắm sạc tắt, chạy tách khỏi phiên Claude Code: **89/89 đạt** trong 3.958,5 giây trên clone của commit `b5e21bc` (code freeze). Dòng FAILED duy nhất lại là run 195 của `inject_test_failure`. Container Thrift chạm 3,83/4 GiB lúc cao nhất nhưng không bị kill. Bằng chứng: `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json` (không commit). Ghi chú vận hành: lệnh dài cần tắt chế độ ngủ của Windows và chạy tách khỏi phiên (README).
+
+## R-40 — Viết lại lịch sử git để xóa mã khoản vay thật (06/11/2026)
+
+**Vấn đề.** Rà C7 (R-38) thấy `tests/gates/results/c3-20261030-100553.json`, có từ commit R-33, chứa 3 mã khoản vay thật kèm điểm tín dụng trong mục `ac09.sample`. Bản làm việc đã ẩn từ commit R-38, nhưng lịch sử vẫn giữ bản cũ, trái EP-08 và tiêu chí C7 ("`git ls-files` không chứa dữ liệu Freddie Mac"; một bản đẩy lên remote sẽ mang theo lịch sử).
+
+**Quyết định** (chủ dự án đồng ý, 06/11/2026). Repo chưa có remote nên viết lại lịch sử nhánh `giai-doan-3` bằng `git filter-repo --replace-text`, thay `"loan_id": "<mã>"` bằng `"loan_id": "<đã ẩn, EP-08>"` ở mọi commit; sau đó hết hạn reflog và `git gc --prune=now`. Kiểm sau khi làm: không commit nào còn chứa mẫu mã khoản vay trong JSON, commit cũ không còn trong kho đối tượng, `git fsck` sạch. Nhánh `main`, `giai-doan-1` không chứa commit bị ảnh hưởng nên giữ nguyên hash. Toàn bộ kho trước khi viết lại được sao lưu ở `data/backup/truoc-viet-lai-lich-su.bundle` (ngoài git, vẫn chứa mã thật, xóa khi không cần khôi phục). Đồng thời xóa `scripts/build_sample_docs.py` (chưa từng được track, ghi đè báo cáo, đã gỡ khỏi Makefile ở R-38).
+
+**Ảnh hưởng.** Sáu commit đổi hash. Tài liệu đã đổi sang hash mới; trường `commit` trong `tests/gates/results/*.json` và `experiments/results/manifest.json` là bằng chứng ghi lúc chạy nên giữ nguyên giá trị cũ, đối chiếu theo bảng dưới. `source_digest` của C4/C6 và digest code của C5 tính trên nội dung file, không phụ thuộc hash commit, nên vẫn kiểm được.
+
+| Commit | Hash cũ | Hash mới |
+| --- | --- | --- |
+| R-33: triển khai lại theo chuẩn Data Vault 2.0 | 59d9042 | db7d01a |
+| R-34, R-35: xử lý theo lô, hoàn thiện staging và soft rule | 46b54b8 | 6f61f17 |
+| Hoàn tất giai đoạn 4, đạt C4 | f9e5468 | e6bb5c5 |
+| R-38: phạm vi cuối là bộ mẫu, C5 | d399fae | f08513d |
+| R-39: heap Thrift, đo lại C5 (code freeze) | 63bb5fa | b5e21bc |
+| C6 đạt | cb80229 | 304dd51 |
 

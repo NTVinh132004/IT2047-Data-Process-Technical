@@ -294,9 +294,9 @@ make experiment-charts && make gate N=5
 | Gold → PostgreSQL (FR-17) | 1.026.938 / 87 / 229 dòng cho ba mart, bằng Delta | JSON C4, `metrics.json` |
 | Notebook (AC-08) | 8 biểu đồ, không có output lỗi | JSON C4 `ac08` |
 | Tái lập sạch (AC-07) | 69/69 kiểm tra trên clone, lake và volume mới | R-36 |
-| Code freeze (C6) | 89/89 kiểm tra C0–C5 và unit test trên clone của commit `63bb5fa`, lake và volume mới; 3.958,5 giây | R-39, `tests/gates/results/c*-20261106-*.json` |
+| Code freeze (C6) | 89/89 kiểm tra C0–C5 và unit test trên clone của commit `b5e21bc`, lake và volume mới; 3.958,5 giây | R-39, `tests/gates/results/c*-20261106-*.json` |
 
-Kết quả clone sạch gắn với hash snapshot `e0ba6679c610248dfcb4fb049926d48b2c349b7327796c092496462da2b6e48e`, sau đó vào commit `f9e5468`. Lượt đọc lại ngày 31/10 kiểm số liệu hiện có bằng `scripts.collect_sample_report`, không chạy lại 69 kiểm tra.
+Kết quả clone sạch gắn với hash snapshot `e0ba6679c610248dfcb4fb049926d48b2c349b7327796c092496462da2b6e48e`, sau đó vào commit `e6bb5c5`. Lượt đọc lại ngày 31/10 kiểm số liệu hiện có bằng `scripts.collect_sample_report`, không chạy lại 69 kiểm tra.
 
 ### 5.2. Thiết lập thực nghiệm
 
@@ -566,7 +566,7 @@ FR-14 minh họa giá trị chính của Data Vault trong bài toán: đợt s�
 | Pipeline lần nạp đầu ở mốc C4 | 1.056,6 giây | [C1](../tests/gates/results/c1-20261030-140936.json), `end_to_end_seconds` | Một lần đo |
 | Thực nghiệm C5 | 5 thực nghiệm, 3 lần đo mỗi cấu hình | `experiments/results/*.csv`, `manifest.json` (digest code) | Bộ mẫu và tập con, lake thực nghiệm riêng |
 | Cổng C5 | 7/7 kiểm tra đạt | `tests/gates/results/c5-*.json` | Kiểm kết quả thô, không chạy lại thực nghiệm |
-| Cổng C6 | 89/89 kiểm tra trên clone sạch của code freeze `63bb5fa` | `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json` | Lần nạp đầu trên clone 950,0 giây |
+| Cổng C6 | 89/89 kiểm tra trên clone sạch của code freeze `b5e21bc` | `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json` | Lần nạp đầu trên clone 950,0 giây |
 | Phân tích Q1–Q5 | Bảng và biểu đồ chương 6 | `data/reports/sample-report/metrics.json` (không commit) | Sample sau CORR1 |
 
 ### A.2. Sổ bằng chứng

@@ -7,7 +7,7 @@ Tài liệu: [Báo cáo trên sample](docs/bao-cao-do-an.md) · [PRD](docs/PRD.m
 
 ## Trạng thái
 
-**06/11/2026 (PRD 1.9):** phạm vi nghiệm thu cuối là bộ mẫu (R-38). Cổng C0–C6 đạt: C6 là `make verify-clean` 89/89 kiểm tra trên clone sạch của code freeze `63bb5fa`. Năm thực nghiệm C5 (TN1 quy mô, TN2 incremental, TN4 PIT, TN6 tách Satellite, TN7 kỹ thuật nạp) chạy trên bộ mẫu và tập con, mỗi cấu hình 3 lần đo, kết quả thô ở `experiments/results/`. Báo cáo: [docs/bao-cao-do-an.md](docs/bao-cao-do-an.md). Bộ đầy đủ là hướng phát triển ([docs/chay-historical.md](docs/chay-historical.md)).
+**06/11/2026 (PRD 1.9):** phạm vi nghiệm thu cuối là bộ mẫu (R-38). Cổng C0–C6 đạt: C6 là `make verify-clean` 89/89 kiểm tra trên clone sạch của code freeze `b5e21bc`. Năm thực nghiệm C5 (TN1 quy mô, TN2 incremental, TN4 PIT, TN6 tách Satellite, TN7 kỹ thuật nạp) chạy trên bộ mẫu và tập con, mỗi cấu hình 3 lần đo, kết quả thô ở `experiments/results/`. Báo cáo: [docs/bao-cao-do-an.md](docs/bao-cao-do-an.md). Bộ đầy đủ là hướng phát triển ([docs/chay-historical.md](docs/chay-historical.md)).
 
 ## Yêu cầu máy
 

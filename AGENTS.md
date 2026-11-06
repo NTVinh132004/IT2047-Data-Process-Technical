@@ -24,9 +24,9 @@ Tài liệu chính nằm trong repo, đọc trước khi làm: `docs/PRD.md`, `d
 
 ## Trạng thái (06/11/2026)
 
-Cổng C0–C6 đạt. R-38 (PRD 1.9): phạm vi cuối là bộ mẫu. R-39: heap Thrift 2,5 GiB và restart policy. C5 đạt 7/7; C6 (`make verify-clean`) 89/89 trên clone của code freeze `63bb5fa`. Sau code freeze chỉ sửa lỗi và tài liệu.
+Cổng C0–C6 đạt. R-38 (PRD 1.9): phạm vi cuối là bộ mẫu. R-39: heap Thrift 2,5 GiB và restart policy. C5 đạt 7/7; C6 (`make verify-clean`) 89/89 trên clone của code freeze `b5e21bc`. Sau code freeze chỉ sửa lỗi và tài liệu.
 
-**Còn lại: C7 (bàn giao, Kế hoạch mục 13).** Chủ repo cần quyết: viết lại lịch sử git để xóa 3 mã khoản vay thật trong commit `59d9042` (đã ẩn ở bản làm việc, repo chưa có remote); xóa `scripts/build_sample_docs.py` (chưa track, đã gỡ khỏi Makefile); chuyển ổ ảo Ubuntu (`ext4.vhdx`, đang ở ổ C) sang ổ F và bật sparse; video demo, thông tin học viên, mẫu bìa.
+**Còn lại: C7 (bàn giao, Kế hoạch mục 13).** Đã làm (06/11/2026): viết lại lịch sử nhánh `giai-doan-3` xóa mã khoản vay thật (R-40, bảng đối chiếu hash cũ → mới; bundle sao lưu ở `data/backup/`, xóa khi không cần), xóa `scripts/build_sample_docs.py`. Chủ repo còn làm: chuyển ổ ảo Ubuntu (`ext4.vhdx`, đang ở ổ C) sang ổ F và bật sparse; video demo, thông tin học viên, mẫu bìa.
 - Lệnh dài (`make experiments`, `make verify-clean`): tắt chế độ ngủ Windows (`powercfg /change standby-timeout-ac 0`) và chạy tách phiên (`setsid nohup ... &`); tác vụ nền của Claude Code bị dừng khi RAM sát mức. Số liệu thực nghiệm: `data/reports/experiments/exp_numbers.py`
 - Tầng phải dựng lại vì đổi model: `python -m ingestion.control invalidate --layers raw_vault,business_vault --reason ...` rồi `make run-all`; không chạy lại tầng dưới
 - Phạm vi chốt theo R-25 và R-38, không cắt thêm; bộ đầy đủ là hướng phát triển (hạ tầng historical giữ trong repo, không nghiệm thu)

@@ -188,7 +188,7 @@ Toàn bộ MVP được phát triển và chạy end-to-end trên bộ mẫu tr�
 
 Đầu ra: truy vấn được trạng thái khoản vay tại một tháng bất kỳ (AC-04); đợt sửa cho thấy Data Vault giữ được giá trị cũ, còn bảng ghi đè thì mất (AC-09).
 
-**Xác minh lại R-34/R-35 ngày 30/10/2026:** C2 đạt 9/9, C3 đạt 7/7 trên code commit `46b54b8` (workspace có thay đổi tài liệu chưa commit); 29 unit test đạt. Bằng chứng: `tests/gates/results/c2-20261030-125842.json`, `tests/gates/results/c3-20261030-130947.json`. Đủ điều kiện bắt đầu giai đoạn 4; chưa nghiệm thu C4.
+**Xác minh lại R-34/R-35 ngày 30/10/2026:** C2 đạt 9/9, C3 đạt 7/7 trên code commit `6f61f17` (workspace có thay đổi tài liệu chưa commit); 29 unit test đạt. Bằng chứng: `tests/gates/results/c2-20261030-125842.json`, `tests/gates/results/c3-20261030-130947.json`. Đủ điều kiện bắt đầu giai đoạn 4; chưa nghiệm thu C4.
 
 **Giai đoạn 4: Gold (tuần 5)**
 
@@ -215,9 +215,9 @@ Thiết kế C4: `Review.md` R-36. Gold gồm bảng snapshot tái dựng từ V
 
 - [x] Hoàn thiện notebook trả lời 5 câu hỏi nghiệp vụ (dashboard Metabase đã cắt, R-25); `make notebook`, 8 biểu đồ, kiểm ở C4 `ac08`
 - [ ] (Mở rộng) vintage 2007 hoặc demo mô hình dự báo: không làm, hướng phát triển (R-38)
-- [x] **Code freeze 06/11/2026** tại commit `63bb5fa`: nghiệm thu thực nghiệm (C5); sau mốc này chỉ sửa lỗi và tài liệu
+- [x] **Code freeze 06/11/2026** tại commit `b5e21bc`: nghiệm thu thực nghiệm (C5); sau mốc này chỉ sửa lỗi và tài liệu
 
-**Cổng C6 đạt 06/11/2026:** `make verify-clean` 89/89 kiểm tra (C0–C5 và unit test) trong 3.958,5 giây trên clone của commit `63bb5fa`, lake ban đầu chưa tồn tại, volume Docker mới; lần nạp đầu 950,0 giây. Snapshot code `source_digest` `efe178c4…` (gồm cả file chưa track `scripts/build_sample_docs.py`, không dùng trong pipeline). Mỗi thực nghiệm có phần giải thích (báo cáo chương 5); notebook trả lời đủ 5 câu hỏi. Bằng chứng: `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json`, `clean-tests.log`. Hai lượt C6 trước không thành: lượt đầu Thrift OOM-kill (R-39), lượt sau treo vì Windows ngủ khi đang chạy (R-39, sự cố vận hành).
+**Cổng C6 đạt 06/11/2026:** `make verify-clean` 89/89 kiểm tra (C0–C5 và unit test) trong 3.958,5 giây trên clone của commit `b5e21bc`, lake ban đầu chưa tồn tại, volume Docker mới; lần nạp đầu 950,0 giây. Snapshot code `source_digest` `efe178c4…` (gồm cả file chưa track `scripts/build_sample_docs.py`, không dùng trong pipeline). Mỗi thực nghiệm có phần giải thích (báo cáo chương 5); notebook trả lời đủ 5 câu hỏi. Bằng chứng: `tests/gates/results/c*-20261106-*.json`, `data/reports/clean-run.json`, `clean-tests.log`. Hai lượt C6 trước không thành: lượt đầu Thrift OOM-kill (R-39), lượt sau treo vì Windows ngủ khi đang chạy (R-39, sự cố vận hành).
 
 **Giai đoạn 7: Hoàn thiện (tuần 8)**
 
@@ -384,11 +384,13 @@ Bộ hồ sơ nộp gồm mã nguồn chạy được bằng một lệnh (khôn
 
 **Sản phẩm bàn giao:**
 
-- [ ] Repo GitHub: code, `docker-compose.yml`, README hướng dẫn tải dữ liệu và chạy
-- [ ] Báo cáo, slide 15–20 trang, video demo 5–7 phút
-- [ ] Sơ đồ Data Vault, từ điển dữ liệu, kết quả thực nghiệm
+- [ ] Repo GitHub: code, `docker-compose.yml`, README hướng dẫn tải dữ liệu và chạy (repo, README sẵn sàng; chưa có remote, chủ repo đẩy lên khi nộp)
+- [ ] Báo cáo, slide 15–20 trang, video demo 5–7 phút (báo cáo và slide 20 trang xong; còn video)
+- [x] Sơ đồ Data Vault (báo cáo mục 4.6), từ điển dữ liệu (`tu-dien-du-lieu.md`), kết quả thực nghiệm (`experiments/results/`, báo cáo chương 5)
 
 Báo cáo: [Báo cáo đồ án](bao-cao-do-an.md), số liệu từ bộ mẫu (R-38).
+
+**Trạng thái C7 (06/11/2026):** `git ls-files` và lịch sử nhánh làm việc không chứa dữ liệu Freddie Mac (quét mẫu mã khoản vay; R-40). Slide chỉ có số tổng hợp. Còn lại cho chủ repo: video demo, đẩy repo lên remote, thông tin học viên/giảng viên và mẫu bìa, tập vấn đáp theo danh sách dưới.
 
 **Dàn ý báo cáo:**
 
@@ -402,13 +404,13 @@ Báo cáo: [Báo cáo đồ án](bao-cao-do-an.md), số liệu từ bộ mẫu 
 
 **Câu hỏi vấn đáp cần chuẩn bị:**
 
-- [ ] Vì sao chọn Data Vault mà không làm star schema trực tiếp? (demo đợt sửa dữ liệu, AC-09)
-- [ ] Vì sao không dùng Delta time travel thay cho Data Vault? (P8)
-- [ ] `hash_diff` hoạt động thế nào, vì sao tách Satellite theo tốc độ thay đổi?
-- [ ] `load_date` khác `reporting_period` thế nào? Vì sao `load_date` theo tháng dù DAG chạy theo quý?
-- [ ] PIT table giải quyết vấn đề gì?
-- [ ] Nạp lại cùng một kỳ hai lần thì chuyện gì xảy ra?
-- [ ] Xử lý thế nào khi Freddie Mac đổi tên cột?
+- [ ] Vì sao chọn Data Vault mà không làm star schema trực tiếp? (demo đợt sửa dữ liệu, AC-09; báo cáo 1.4, 4.10)
+- [ ] Vì sao không dùng Delta time travel thay cho Data Vault? (P8; báo cáo 2.4)
+- [ ] `hash_diff` hoạt động thế nào, vì sao tách Satellite theo tốc độ thay đổi? (báo cáo 4.5, 4.6; TN6 mục 5.6: lợi ở truy vấn, không ở dung lượng)
+- [ ] `load_date` khác `reporting_period` thế nào? Vì sao `load_date` theo tháng dù DAG chạy theo quý? (báo cáo 2.3, 4.3)
+- [ ] PIT table giải quyết vấn đề gì? (báo cáo 4.7; TN4 mục 5.5)
+- [ ] Nạp lại cùng một kỳ hai lần thì chuyện gì xảy ra? (báo cáo 4.3 `replaceWhere`, 4.6 `apply_source_filter`; AC-02)
+- [ ] Xử lý thế nào khi Freddie Mac đổi tên cột? (báo cáo 4.2: `conf/schema`, FR-03; test C1 `test_rename_column_in_conf_only`)
 
 **Nguồn:**
 
