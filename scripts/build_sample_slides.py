@@ -22,6 +22,8 @@ from experiments.charts import load as load_experiment, measured, stats
 from experiments.run import RESULTS as EXPERIMENTS
 
 ROOT=Path(__file__).resolve().parents[1]
+STUDENT='Nguyễn Thế Vĩnh'; STUDENT_ID='26848266'
+ADVISOR='……………………'  # chủ dự án tự điền
 OUT=ROOT/'data/reports/sample-report'
 DARK='143D35'; INK='163C33'; TEAL='087F73'; GOLD='C58B24'; MUTED='536A63'; WHITE='FFFFFF'; LIGHT='F1F7F4'
 COLORS=[TEAL,GOLD,'BB5954','739C6B','69788F','A37DA2']
@@ -59,21 +61,22 @@ def main():
     prs=Presentation();prs.slide_width=Inches(13.333);prs.slide_height=Inches(7.5)
     prs.core_properties.title='Lakehouse và Data Vault 2.0 — Freddie Mac sample 2019'
     prs.core_properties.subject='Kỹ thuật xử lý dữ liệu, thực nghiệm C5 và phân tích mô tả trên sample (R-38)'
-    prs.core_properties.author='Dự án mortgage-datavault'
+    prs.core_properties.author=STUDENT
     content_layout=prs.slide_layouts[5];content_layout.name='Nội dung sample'
     title_ph=content_layout.placeholders[0];title_ph.left=Inches(.6);title_ph.top=Inches(.4);title_ph.width=Inches(12.1);title_ph.height=Inches(.85)
     page_data=[];current=None
-    def page(title,notes='',dark=False):
+    def page(title,notes='',dark=False,section=''):
         nonlocal current
         slide=prs.slides.add_slide(content_layout)
         slide.background.fill.solid();slide.background.fill.fore_color.rgb=rgb(DARK if dark else WHITE)
         shape=slide.shapes.title;shape.text=title
         shape.text_frame.margin_left=0;shape.text_frame.margin_right=0
         for p in shape.text_frame.paragraphs:p.font.name='Arial';p.font.size=Pt(36);p.font.bold=True;p.font.color.rgb=rgb(WHITE if dark else INK)
-        slide.notes_slide.notes_text_frame.text=notes+'\nNguồn số liệu: data/reports/sample-report/metrics.json; sample 2019. Không đại diện bộ đầy đủ.\nC0–C4: hồ sơ 30/10/2026; đối soát sample 31/10/2026; thực nghiệm C5: experiments/results/ (R-38).'
+        slide.notes_slide.notes_text_frame.text=notes+'\n\nNguồn: docs/bao-cao-do-an.md; số liệu data/reports/sample-report/metrics.json và experiments/results/. Bộ mẫu 2019, không đại diện bộ đầy đủ.'
         current={'title':title,'dark':dark,'elements':[],'notes':notes,'slide':slide}
         page_data.append(current)
-        box(.6,7.06,11.5,.2,'Freddie Mac sample 2019  ·  05/11/2026  ·  Kết quả trong phạm vi sample',10,color='A9CAC0' if dark else MUTED)
+        box(.6,7.06,11.5,.2,f'{STUDENT}  ·  Freddie Mac vintage 2019 (bộ mẫu)  ·  06/11/2026',10,color='A9CAC0' if dark else MUTED)
+        if section:box(.6,.12,11.5,.3,section,13,color=TEAL,bold=True)
         box(12.15,7.02,.5,.25,f'{len(page_data):02d}',12,color='A9CAC0' if dark else MUTED)
         return slide
     def box(x,y,w,h,text,size=20,color=INK,bold=False,fill=None):
@@ -141,33 +144,98 @@ def main():
         ax.grid(axis='y' if spec['kind']=='line' else 'x',alpha=.15)
         if len(series)>1:ax.legend(loc='best',fontsize=10)
         ax.set_title(spec['title'],loc='left',fontsize=15,pad=14,color='#'+INK)
-    page('Lakehouse + Data Vault 2.0','Phạm vi: implementation sample, không phải nghiệm thu hiệu năng full.',True)
-    box(.7,1.7,11.8,1.25,'Truy vết lịch sử và phân tích rủi ro tín dụng',32,color=WHITE,bold=True)
-    box(.7,3.4,10.7,1.3,'Freddie Mac sample vintage 2019\nĐồ án cao học · Kỹ thuật xử lý dữ liệu',24,color='B9D7CD')
-    box(.7,5.5,10.7,.7,'TXT → Delta Lake → Data Vault → PostgreSQL → Notebook',22,color='E3B65C')
-    page('Kết quả chính trên sample','C1 end_to_end_seconds; C4 ac05/ac08; đối soát hiện tại metrics source_files/monthly.')
-    card(.7,1.7,3.7,'50.000','khoản vay trong nguồn')
-    card(4.8,1.7,3.7,'1.934.614','quan sát khoản vay–tháng')
-    card(8.9,1.7,3.7,'87 tháng','01/2019–03/2026')
-    box(.8,4.0,11.5,.9,'Đã có: 29 quý + CORR1; 6 tầng SUCCESS; 8 biểu đồ',26,bold=True)
-    box(.8,5.35,11.5,.9,f'5 thực nghiệm C5 × 3 lần đo: pipeline {sec(tn1["p25"])}s → {sec(tn1["p100"])}s khi dữ liệu tăng 3,9 lần',22,color=MUTED)
-    page('Bài toán cần giữ lịch sử','FR-14, R-17, R-36. SCD1 chỉ là đối chứng cụ thể; không phủ nhận SCD2.')
-    diagram([('Nguồn đến theo kỳ','Khoản vay có nhiều quan sát tháng'),('Có sửa dữ liệu','Giá trị cũ cần còn truy vấn được'),('Raw Vault','Giữ phiên bản và nguồn giao'),('Mart / notebook','Trả lời câu hỏi rủi ro')])
-    box(.8,6.0,11.7,.5,'Đối chứng là SCD1, không phải mọi phương án star schema',19,color=TEAL)
-    page('Dữ liệu và đợt sửa tách riêng','metrics source_files/tables; C3 ac09. 50.020 Bronze orig bao gồm 20 correction, không phải 50.020 dòng TXT.')
-    card(.7,1.7,3.7,'50.000','dòng orig TXT')
-    card(4.8,1.7,3.7,'20 dòng','CORR1 giả lập, thêm sau kỳ cuối')
-    card(8.9,1.7,3.7,'50.020','dòng Bronze orig sau CORR1')
-    box(.8,4.1,11.5,.8,'Perf và fact không tăng thêm tháng vì sửa orig',25,bold=True)
-    box(.8,5.35,11.5,.8,'SHA-256 nguồn và phiên bản Delta được lưu cùng metrics',20,color=MUTED)
-    page('Kiến trúc chạy trên một máy','PRD R-25/R-33/R-36. Delta local, không MinIO/Metabase. PostgreSQL chỉ serving/control/metastore/Airflow.')
-    diagram([('Bronze','PySpark\nChuỗi nguồn, cắt lát kỳ'),('Quality','Hard rule\nQuarantine / dedup'),('Silver','dbt + automate-dv\nRaw Vault + BV / PIT'),('Gold','Fact + 5 dimension\n3 mart'),('Serving','JDBC → PostgreSQL\nNotebook / Jupyter')])
-    box(.8,6.0,11.5,.5,'Airflow: mỗi tầng một DAG, đọc control.layer_run; pool 1 slot Spark, 1 slot dbt',20,color=TEAL)
-    page('TXT → landing → Bronze: đọc một lần','TN7 (R-28, R-27, SP-06/07): experiments/results/tn7_*.csv; trung vị 3 lần đo, lake thực nghiệm p100.')
+    def docfig(key,labels,series,title,kind='bar',percent=True):
+        """Hình cho báo cáo (docs/bao-cao-do-an.md mục 6), không thêm vào slide."""
+        fig,ax=plt.subplots(figsize=(11,4.8));draw_chart(ax,dict(labels=labels,series=series,title=title,kind=kind,percent=percent))
+        fig.tight_layout();fig.savefig(figures/f'{key}.png',dpi=150);fig.savefig(figures/f'{key}.svg');plt.close(fig)
+    def rows(items,y0=1.75,h=.95,gap=.18,left=5.3):
+        """Mỗi hàng: vấn đề (ô màu) → giải pháp."""
+        for i,(problem,solution) in enumerate(items):
+            y=y0+i*(h+gap)
+            box(.7,y,left,h,problem,17,bold=True,fill=LIGHT)
+            box(.7+left+.1,y+.25,.5,.4,'→',22,color=TEAL,bold=True)
+            box(.7+left+.7,y+.05,12.6-(.7+left+.7),h,solution,17,color=INK)
+    def columns(items,y=1.75,h=4.6,size=16):
+        """Các cột tiêu đề + nội dung."""
+        w=11.9/len(items)
+        for i,(head,body) in enumerate(items):
+            x=.65+i*w
+            box(x,y,w-.2,h,'',fill=LIGHT)
+            box(x+.2,y+.15,w-.6,.5,head,22,color=TEAL,bold=True)
+            box(x+.2,y+.85,w-.6,h-1.0,body,size,color=INK)
+    def band(col):
+        rows_=m['bands'][col];return [r['label'] for r in rows_],[r['d90_plus_count']/r['eligible_count'] for r in rows_]
+    q_split=med('tn6_query','seconds',design='split');q_merged=med('tn6_query','seconds',design='merged')
+
+    # ---------------------------------------------------------------- Mở đầu
+    page('Đồ án môn Kỹ thuật xử lý dữ liệu','Giới thiệu đề tài, học viên. Nói một câu về bài toán: dữ liệu khoản vay đến theo đợt, có sửa đổi, cần giữ lịch sử và phân tích rủi ro.',True)
+    box(.7,1.55,11.2,1.6,'Xây dựng Data Lakehouse kết hợp Data Vault 2.0\ntrên Apache Spark cho phân tích rủi ro tín dụng\nkhoản vay thế chấp',26,color=WHITE,bold=True)
+    box(.7,3.5,11.2,1.0,'Dữ liệu: Freddie Mac Single-Family Loan-Level Dataset\nvintage 2019, bộ mẫu 50.000 khoản vay',19,color='B9D7CD')
+    box(.7,4.85,11,1.4,f'Học viên: {STUDENT}  ·  MSHV: {STUDENT_ID}\nGiảng viên hướng dẫn: {ADVISOR}',22,color='E3B65C',bold=True)
+
+    page('Lý do chọn đề tài','Ba đặc điểm của dữ liệu tín dụng làm bảng phẳng hoặc star schema ghi đè không đủ: dữ liệu đến theo đợt, bị sửa, và cần truy vết. Đó là lý do khảo sát Data Vault trên Lakehouse.',section='Mở đầu')
+    columns([('Dữ liệu đến theo đợt','Freddie Mac công bố dữ liệu theo quý; mỗi khoản vay có một dòng trạng thái mỗi tháng.\n\nHệ thống phải nạp tăng dần, không nạp lại toàn bộ.'),
+             ('Có lỗi và bị sửa','Dữ liệu lịch sử có thể được sửa ở lần phát hành sau; Release 47 (07/2026) đổi tên cột.\n\nGiá trị cũ vẫn phải truy vấn được.'),
+             ('Cần truy vết','Kiểm toán hỏi: khoản vay ở trạng thái nào tại tháng X, theo dữ liệu của đợt nạp nào?\n\nMỗi dòng cần nguồn và thời điểm nạp.')],h=3.9)
+    box(.8,5.9,11.6,.6,'Bảng ghi đè làm mất lịch sử → khảo sát Data Vault 2.0 làm lớp lưu lịch sử trên Lakehouse',19,color=TEAL,bold=True)
+
+    page('Bài toán','Phát biểu bài toán: đầu vào, yêu cầu xử lý, đầu ra. Năm câu hỏi nghiệp vụ là tiêu chí kiểm tra đầu ra ở chương 4.',section='Mở đầu')
+    diagram([('Đầu vào','2 file TXT orig/perf\n50.000 khoản vay\n1,93 triệu dòng tháng'),
+             ('Xử lý','Nạp tăng dần theo kỳ\nGiữ lịch sử, chạy lại an toàn\nChặn lỗi kỹ thuật'),
+             ('Đầu ra','Data Vault có lịch sử\nMart PostgreSQL\nNotebook phân tích')])
+    box(.8,5.55,11.7,1.2,'Q1 quá hạn theo tháng (COVID) · Q2 điểm tín dụng, LTV, DTI · Q3 bang và bên bán · Q4 kết cục sau hoãn trả · Q5 trả trước hạn',17,color=MUTED)
+
+    page('Mục tiêu và phạm vi','Mục tiêu đo được bằng tiêu chí nghiệm thu AC-01 đến AC-09 và cổng C0 đến C6. Phạm vi chốt ở bộ mẫu theo R-38; bộ đầy đủ và ML là hướng phát triển.',section='Mở đầu')
+    columns([('Mục tiêu','• Pipeline tăng dần chạy bằng một lệnh\n• Lịch sử và truy vết đầy đủ, chạy lại không đổi số dòng\n• Trả lời 5 câu hỏi rủi ro tín dụng\n• Chứng minh thiết kế bằng 5 thực nghiệm, mỗi cấu hình 3 lần đo'),
+             ('Phạm vi','• Bộ mẫu vintage 2019: 50.000 khoản vay, 29 quý (01/2019–03/2026)\n• Một máy: WSL2, RAM 12 GB, Docker\n• Ngoài phạm vi: bộ đầy đủ 8,2 GB, mô hình ML, streaming, cloud')],h=4.4,size=20)
+
+    # ---------------------------------------------------------------- Chương 1
+    page('Lakehouse, Medallion và Delta Lake','Medallion tổ chức dữ liệu theo mức hoàn thiện. Trong đồ án, Silver chứa Data Vault. Delta Lake là định dạng bảng: file Parquet cộng nhật ký giao dịch, cho phép ghi đè đúng lát và xem phiên bản cũ.',section='Chương 1 · Cơ sở lý thuyết')
+    diagram([('Bronze','Dữ liệu nguồn giữ nguyên dạng chuỗi\nkèm nguồn, thời điểm nạp'),
+             ('Silver','Raw Vault: lịch sử nguồn\nBusiness Vault: quy tắc nghiệp vụ'),
+             ('Gold','Mô hình chiều và mart\ncho người phân tích')])
+    box(.8,5.75,11.6,.9,'Delta Lake = file Parquet + nhật ký giao dịch: ACID, ghi đè đúng lát (replaceWhere), xem phiên bản cũ',18,color=TEAL)
+
+    page('Data Vault 2.0','Bốn đối tượng chính. Điểm quan trọng: Satellite chỉ thêm dòng khi thuộc tính đổi (so hash_diff) và không bao giờ sửa hay xóa, nên giữ được mọi phiên bản.',section='Chương 1 · Cơ sở lý thuyết')
+    diagram([('Hub','Danh sách khóa nghiệp vụ\nmỗi khóa một dòng'),
+             ('Link','Quan hệ giữa các khóa\nmỗi cặp một dòng'),
+             ('Satellite','Thuộc tính có lịch sử\nchỉ thêm khi hash_diff đổi'),
+             ('PIT','Con trỏ tới phiên bản\nhiệu lực tại mỗi mốc')])
+    box(.8,5.75,11.6,.9,'Raw Vault chỉ thêm, không sửa, không xóa; quy tắc nghiệp vụ nằm ở Business Vault để đổi luật không phải nạp lại',18,color=TEAL)
+
+    page('Công nghệ sử dụng','Mỗi công cụ một vai trò. PySpark xử lý file và kiểm tra kỹ thuật; dbt mô hình hóa bằng SQL; Airflow điều phối mỗi tầng như một job độc lập.',section='Chương 1 · Cơ sở lý thuyết')
+    columns([('PySpark','Landing, Bronze, cổng chất lượng, xuất PostgreSQL'),
+             ('dbt','dbt-spark + AutomateDV: staging, Raw Vault, Business Vault, Gold bằng SQL'),
+             ('Delta Lake','Lưu trữ trên đĩa; Hive Metastore, Spark Thrift Server'),
+             ('Airflow','6 DAG theo tầng, bảng điều khiển, thử lại'),
+             ('PostgreSQL','Mart phục vụ, notebook Jupyter')],y=1.75,h=3.6,size=17)
+    box(.8,5.75,11.6,.9,'Spark 3.5.5 · Delta 3.3.2 · dbt-core 1.12 · AutomateDV 0.11.5 · Airflow 3.3 · Docker Compose',18,color=MUTED)
+
+    # ---------------------------------------------------------------- Chương 2
+    page('Bộ dữ liệu Freddie Mac','Hai file nối bằng mã khoản vay. Orig là thuộc tính lúc giải ngân, perf là trạng thái hằng tháng. Đợt sửa CORR1 là dữ liệu giả lập để kiểm chứng việc giữ lịch sử.',section='Chương 2 · Hiện trạng và dữ liệu')
+    card(.7,1.7,3.7,'50.000','khoản vay (file orig)')
+    card(4.8,1.7,3.7,'1.934.614','dòng khoản vay–tháng (perf)')
+    card(8.9,1.7,3.7,'87 tháng','01/2019 – 03/2026')
+    box(.8,3.85,11.6,1.6,'Orig: 31 trường lúc giải ngân (điểm tín dụng, LTV, DTI, bang, bên bán)\nPerf: 35 trường mỗi tháng (dư nợ, quá hạn, hoãn trả, kết thúc)\nTXT không tiêu đề, phân tách bằng |, layout Release 47',18,color=INK)
+    box(.8,5.9,11.6,.6,'Đợt sửa CORR1 (giả lập): 20 khoản vay được sửa điểm tín dụng và DTI, nạp sau kỳ cuối',17,color=TEAL)
+
+    page('Vấn đề dữ liệu → yêu cầu thiết kế','Mỗi vấn đề của dữ liệu dẫn tới một quyết định thiết kế ở chương 3. Đây là cầu nối giữa phân tích hiện trạng và thiết kế.',section='Chương 2 · Hiện trạng và dữ liệu')
+    rows([('File chia theo quý khởi tạo, phân tích theo tháng báo cáo','Landing phân vùng theo tháng; mỗi kỳ nạp một quý báo cáo'),
+          ('Sai số trường, mã thiếu 9999/XX, đổi tên cột','Đọc text rồi tách trường; hard rule trước Vault; schema trong conf/'),
+          ('Dữ liệu bị sửa ở đợt sau','Satellite chỉ thêm phiên bản; load_date riêng cho mỗi tháng'),
+          ('Nạp lại hoặc lỗi giữa chừng','Ghi đè đúng lát kỳ; bỏ qua dòng đã có; job theo tầng có thử lại')])
+
+    # ---------------------------------------------------------------- Chương 3
+    page('Kiến trúc hệ thống','Luồng dữ liệu từ TXT tới notebook. Mỗi tầng là một job Airflow riêng, đọc bảng điều khiển để biết kỳ nào sẵn sàng.',section='Chương 3 · Thiết kế hệ thống')
+    diagram([('Bronze','PySpark\nchuỗi nguồn, cắt lát kỳ'),('Quality','Hard rule\nquarantine / dedup'),('Silver','dbt + AutomateDV\nRaw Vault, BV, PIT'),('Gold','Fact + 5 dimension\n3 mart'),('Serving','JDBC → PostgreSQL\nnotebook')])
+    box(.8,6.0,11.5,.5,'Airflow: mỗi tầng một DAG, đọc control.layer_run; một slot Spark, một slot dbt',19,color=TEAL)
+
+    page('Kỹ thuật nạp: TXT → landing → Bronze','Đọc TXT dạng text để giữ bằng chứng lỗi; ghi Delta phân vùng theo tháng để mỗi kỳ chỉ đọc 3 thư mục tháng. Số đo từ thực nghiệm TN7.',section='Chương 3 · Thiết kế hệ thống')
     diagram([('TXT perf',f"{mib('sample_perf_2019.txt')} MiB · 1 file\ntext + split, giữ chuỗi\n_field_count, _raw"),('Landing Delta',f"{mib('landing.sample_perf')} MiB · {storage['landing.sample_perf']['num_files']} file\nphân vùng theo tháng"),('Bronze','replaceWhere theo kỳ\nchỉ đọc 3 thư mục tháng'),('Quality','clean + quarantine\n+ dedup = Bronze')])
-    box(.8,5.75,11.6,.5,f'Lát Bronze một kỳ: {sec(slice_txt)}s đọc thẳng TXT → {sec(slice_landing)}s qua landing',21,color=TEAL,bold=True)
-    box(.8,6.35,11.6,.5,f"Sai số trường cài sẵn: text + split bắt {faults['text_split']['detected']}/20 · CSV mặc định 0/20 · CSV FAILFAST dừng cả lần đọc",17,color=MUTED)
-    page('Raw Vault gồm Hub, Link, Satellite','Model raw_vault: 3 hub, 2 link, 5 satellite thuộc tính và 2 record-tracking satellites.')
+    box(.8,5.75,11.6,.5,f'Lát Bronze một kỳ: {sec(slice_txt)}s đọc thẳng TXT → {sec(slice_landing)}s qua landing (TN7)',20,color=TEAL,bold=True)
+    box(.8,6.35,11.6,.5,f"Dòng sai số trường cài sẵn: text + split bắt {faults['text_split']['detected']}/20 · CSV mặc định 0/20",17,color=MUTED)
+
+    page('Mô hình Raw Vault','3 Hub, 2 Link, 5 Satellite trên khoản vay và 2 satellite theo dõi hiện diện. Satellite tách theo tốc độ thay đổi: dư nợ đổi mỗi tháng, quá hạn ít đổi.',section='Chương 3 · Thiết kế hệ thống')
     for x1,y1,x2,y2 in [(2.1,2.5,3.9,3.15),(6.65,2.5,3.9,3.15),(10.9,2.5,9.4,3.15),(6.65,2.5,9.4,3.15),(6.65,2.5,6.65,4.45)]:
         line=current['slide'].shapes.add_connector(MSO_CONNECTOR.STRAIGHT,Inches(x1),Inches(y1),Inches(x2),Inches(y2))
         line.line.color.rgb=rgb(TEAL);line.line.width=Pt(1.5)
@@ -178,67 +246,65 @@ def main():
     box(2.3,3.15,3.25,.8,'Link Loan–Seller',20,bold=True,fill=LIGHT)
     box(7.75,3.15,3.25,.8,'Link Loan–Servicer',20,bold=True,fill=LIGHT)
     box(4.25,4.45,4.8,1.35,'5 Satellite của Loan\nOrigination · Property · Balance\nDelinquency · Termination',18,bold=True,fill=LIGHT)
-    box(.8,6.1,11.7,.6,'Tracking: xts_loan và xts_loan_servicer · Hash SHA-256 cố định · insert-only',18,color=TEAL)
-    page('Kỳ điều phối khác tháng nghiệp vụ','DEV-03, R-01. load_date là thời điểm đến giả lập, không phải thời gian insert thật.')
-    diagram([('2019Q1','Một kỳ yêu cầu qua Airflow'),('201901','reporting_period\nTháng báo cáo'),('2019-02-01','load_date giả lập\nNgày đầu tháng sau'),('Control','started_at / finished_at\nThời gian chạy thật')])
-    box(.8,6.0,11.5,.5,'Không dùng chung một load_date cho cả quý',22,color=TEAL,bold=True)
-    page('Hard rule trước, soft rule sau Raw Vault','R-35. Sample thực tế không có quarantine; fixture giả kiểm khả năng bắt lỗi.')
-    diagram([('Giữ nguyên','Bronze và Raw giữ mã thiếu thô'),('Chặn kỹ thuật','Số trường, khóa, kiểu, trùng xung đột'),('Báo cáo nghiệp vụ','BV quality_violation\nKhông loại khỏi Raw')])
-    box(.8,6.0,11.5,.6,'Bronze = clean + quarantine + dedup; sample hiện khớp',21,color=TEAL)
-    page('Kiểm chứng MVP và chạy lại an toàn','C0–C4 tại snapshot C4: 69 tests, không phải 69 lần đo. Baseline C1 là một lần.')
-    card(.7,1.7,3.7,'69/69','kiểm tra tại mốc C4')
-    card(4.8,1.7,3.7,'0 lệch','87 tháng ở cổng C4')
-    card(8.9,1.7,3.7,'17m 36,6s','một baseline nạp đầu sample')
-    box(.8,4.0,11.5,1.0,'C2/C3/C4: chạy lại giữ số dòng; C4 thử rollback và chặn export khi Gold lỗi',23,bold=True)
-    box(.8,5.6,11.5,.75,'Đối soát mới: TXT → mart PostgreSQL về số dòng/dư nợ; Gold bằng mart về số dòng',18,color=MUTED)
-    page('FR-14: sửa dữ liệu vẫn giữ bản cũ','C3 ac09: 20/20 đúng. Sat origination có 50.021 dòng gồm một ghost; baseline SCD1 50.000.')
-    diagram([('Đợt gốc','50.000 khoản vay\nSatellite giữ phiên bản đầu'),('CORR1','20 khoản vay được sửa\nload_date mới'),('Satellite','Thêm 20 phiên bản\nBản cũ còn nguyên'),('SCD1 đối chứng','50.000 dòng\nChỉ còn giá trị mới')])
-    box(.8,6.0,11.5,.5,'Không suy ra Data Vault luôn tốt hơn mô hình chiều có lịch sử',19,color=TEAL)
-    page('TN1 · Quy mô và chi phí cố định','tn1_scale.csv: mỗi lần đo dựng stack và lake mới; AC-01/05/06 đạt mọi lần chạy.')
+    box(.8,6.05,11.7,.7,'SHA-256 cho khóa và hash_diff · chỉ thêm khi hash_diff đổi · load_date = ngày 1 tháng sau tháng báo cáo',17,color=TEAL)
+
+    page('Business Vault, PIT, Gold và điều phối','PIT cho phép lấy trạng thái tại một tháng bất kỳ bằng equi-join. Gold dựng lại từ Vault. Export công bố cả ba mart trong một transaction PostgreSQL.',section='Chương 3 · Thiết kế hệ thống')
+    columns([('PIT','Con trỏ tới phiên bản hiệu lực tại mỗi mốc; ghost record nên mọi join là equi-join'),
+             ('Business Vault','Số tháng quá hạn liên tiếp, vòng đời khoản vay, báo cáo soft rule'),
+             ('Gold','Fact khoản vay × tháng, 5 dimension, 3 mart'),
+             ('Airflow','6 DAG theo tầng; lease, thử lại có giới hạn')],y=1.75,h=3.8,size=17)
+    box(.8,5.85,11.6,.7,'Export: JDBC vào bảng trung gian, đối soát số dòng, thay serving trong một transaction',18,color=TEAL)
+
+    # ---------------------------------------------------------------- Chương 4
+    page('Kiểm chứng hệ thống','Chín tiêu chí nghiệm thu đạt; toàn bộ 89 kiểm tra chạy lại đạt trên bản clone sạch. FR-14 là bằng chứng chính: Data Vault giữ bản cũ, bảng ghi đè thì mất.',section='Chương 4 · Thực nghiệm và đánh giá')
+    card(.7,1.7,3.7,'AC-01–09','9 tiêu chí nghiệm thu đạt')
+    card(4.8,1.7,3.7,'89/89','kiểm tra C0–C6 trên clone sạch')
+    card(8.9,1.7,3.7,'0 lệch','dư nợ 87 tháng so với TXT')
+    box(.8,3.9,11.6,1.3,'FR-14: sau đợt sửa CORR1, Satellite có phiên bản mới cho đúng 20 khoản vay, bản cũ còn nguyên; PIT trước/sau đợt sửa trả giá trị cũ/mới; bảng đối chứng ghi đè (SCD1) chỉ còn giá trị mới',18,color=INK)
+    box(.8,5.6,11.6,.9,'Chạy lại một kỳ bất kỳ sinh 0 dòng mới ở Hub, Link, Satellite (AC-02)',18,color=TEAL)
+
+    page('Thực nghiệm TN1: mở rộng quy mô','Ba tập con 25, 50, 100% khoản vay, mỗi tập 3 lần với stack mới. Ở quy mô mẫu, chi phí cố định của Spark và dbt chiếm phần lớn thời gian.',section='Chương 4 · Thực nghiệm và đánh giá')
     image(EXPERIMENTS/'tn1_scale.png',.7,1.55,11.9)
-    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · ingest không đổi · Raw Vault theo số lô (p25: 6 lô, p100: 2 lô) · AC đạt 9/9 lần',17,color=TEAL)
-    page('TN2 · Incremental và TN4 · PIT','tn2_incremental.csv: số dòng incremental = full refresh ở mọi mốc. tn4_pit.csv: checksum PIT = join trực tiếp.')
-    image(EXPERIMENTS/'tn2_incremental.png',.5,1.6,6.1)
-    image(EXPERIMENTS/'tn4_pit.png',6.75,1.6,6.1)
-    box(.8,5.4,5.8,1.1,f'{k_last} kỳ: incremental {sec(tn2["incremental"])}s, full refresh {sec(tn2["full_refresh"])}s; cùng số dòng',17,color=MUTED)
-    box(7.0,5.4,5.6,1.1,f'Mọi tháng: PIT {sec(tn4[("all_months","pit")])}s, join as-of {sec(tn4[("all_months","direct")])}s; cùng checksum',17,color=MUTED)
-    page('TN6 · Tách Satellite theo tốc độ đổi','tn6_storage.csv, tn6_query.csv. Parquet nén cột nên Satellite gộp không lớn hơn tổng ba Satellite tách.')
-    image(EXPERIMENTS/'tn6_split.png',.7,1.55,11.9)
-    q_split=med('tn6_query','seconds',design='split');q_merged=med('tn6_query','seconds',design='merged')
-    box(.8,6.3,11.6,.5,f'Lợi ở truy vấn lịch sử quá hạn ({sec(q_split)}s so với {sec(q_merged)}s), không ở dung lượng ({split_mib:.1f} so với {merged_mib:.1f} MiB)'.replace('.',','),18,color=TEAL)
+    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · Raw Vault theo số lô (p25: 6 lô, p100: 2 lô) · đạt AC 9/9 lần',17,color=TEAL)
+
+    page('Thực nghiệm TN2, TN4, TN6','Ba thực nghiệm chứng minh quyết định thiết kế Data Vault. Mỗi thực nghiệm có phép kiểm đúng: cùng số dòng hoặc cùng checksum.',section='Chương 4 · Thực nghiệm và đánh giá')
+    image(EXPERIMENTS/'tn2_incremental.png',.5,1.5,6.1)
+    image(EXPERIMENTS/'tn4_pit.png',6.75,1.5,6.1)
+    box(.8,5.2,5.8,.9,f'TN2 · {k_last} kỳ: incremental {sec(tn2["incremental"])}s, full refresh {sec(tn2["full_refresh"])}s; cùng số dòng',16,color=MUTED)
+    box(7.0,5.2,5.6,.9,f'TN4 · PIT {sec(tn4[("all_months","pit")])}s, join as-of {sec(tn4[("all_months","direct")])}s; cùng checksum',16,color=MUTED)
+    box(.8,6.15,11.6,.6,f'TN6 · tách Satellite: truy vấn lịch sử quá hạn {sec(q_split)}s so với {sec(q_merged)}s; dung lượng {split_mib:.1f} so với {merged_mib:.1f} MiB (không tiết kiệm)'.replace('.',','),16,color=TEAL)
+
     dates=[r['reporting_date'][:7] for r in m['monthly']]
     monthly=[(name,[r[k]/r['eligible_count'] if r['eligible_count'] else None for r in m['monthly']]) for name,k in [('30–59 ngày','d30_count'),('60–89 ngày','d60_count'),('90+ ngày','d90_plus_count')]]
-    page('Q1 · Quá hạn tăng trong giai đoạn COVID','metrics monthly; max 90+ Feb2021 1073/30067; March2026 134/14246. Không nhân quả.')
-    chart('monthly',dates,monthly,'Tỷ lệ trên khoản vay hoạt động có trạng thái hợp lệ')
-    commentary('Đỉnh 90+: 3,57%','02/2021: 1.073 / 30.067\n03/2026: 0,94%\n\nDanh mục và quy mô thay đổi theo thời gian; không suy ra tác động chính sách')
-    def band(col):
-        rows=m['bands'][col];return [r['label'] for r in rows],[r['d90_plus_count']/r['eligible_count'] for r in rows]
-    page('Q2 · Điểm tín dụng, LTV, DTI và quá hạn 90+','metrics bands credit/ltv/dti. Mẫu số là quan sát khoản vay–tháng hợp lệ, không phải khoản vay duy nhất; không nhân quả.')
-    labels,values=band('credit_score_band');chart('credit',labels,[('90+',values)],'Điểm tín dụng',kind='bar',x=.5,y=1.7,w=4.2,h=4.5)
-    labels,values=band('ltv_band');chart('ltv',labels,[('90+',values)],'LTV',kind='bar',x=4.75,y=1.7,w=4.1,h=4.5)
-    labels,values=band('dti_band');chart('dti',labels,[('90+',values)],'DTI',kind='bar',x=8.9,y=1.7,w=4.1,h=4.5)
-    box(.8,6.35,11.7,.4,'Tỷ lệ 90+ gộp toàn thời gian · 620–679: 3,49%, ≥780: 0,38% · nhóm <620 chỉ 1.744 quan sát',16,color=MUTED)
-    # Hình gộp cho tài liệu, giữ hai biểu đồ native riêng trong PowerPoint.
+    page('Kết quả phân tích Q1–Q3','Q1: tỷ lệ 90+ cao nhất 3,57% ở 02/2021. Q2: nhóm điểm thấp quá hạn nhiều hơn. Q3: NJ, NV, NY cao nhất trong các bang đủ lớn. Đây là mô tả, không phải quan hệ nhân quả.',section='Chương 4 · Thực nghiệm và đánh giá')
+    chart('monthly',dates,monthly,'Q1 · Tỷ lệ quá hạn theo tháng',x=.5,y=1.6,w=7.2,h=4.6)
+    labels,values=band('credit_score_band');chart('credit',labels,[('90+',values)],'Q2 · 90+ theo điểm tín dụng',kind='bar',x=7.9,y=1.6,w=4.9,h=4.6)
+    box(.8,6.4,11.9,.4,'Q1 đỉnh 90+ 3,57% (02/2021) · Q2 620–679: 3,49%, ≥780: 0,38% · Q3 NJ 2,52%, NV 2,04%, NY 1,91%',15,color=MUTED)
+    page('Kết quả phân tích Q4–Q5','Q4: cohort 3.310 khoản vay hoãn trả COVID, 43% hồi phục, 36% trả trước, 16% vỡ nợ lần đầu. Q5: CPR đỉnh 52,8% ở 03/2021 khi lãi suất thấp.',section='Chương 4 · Thực nghiệm và đánh giá')
+    chart('covid',[r['outcome'] for r in m['covid']],[('Khoản vay',[r['loan_count'] for r in m['covid']])],'Q4 · Kết cục sau hoãn trả (3.310 khoản vay)',kind='bar',percent=False,x=.5,y=1.6,w=5.8,h=4.6)
+    chart('prepayment',[r['reporting_date'][:7] for r in m['prepayment']],[(k.upper(),[float(r[k]) if r[k] is not None else None for r in m['prepayment']]) for k in ['smm','cpr']],'Q5 · Trả trước hạn SMM và CPR',x=6.5,y=1.6,w=6.3,h=4.6)
+    box(.8,6.35,11.7,.45,'Q4: 43,23% hồi phục · 35,98% trả trước · 15,83% vỡ nợ lần đầu · Q5: CPR đỉnh 52,80% (03/2021)',16,color=MUTED)
+    # Hình cho báo cáo mục 6, không còn là trang riêng trong slide
+    labels,values=band('ltv_band');docfig('ltv',labels,[('90+',values)],'LTV · tỷ lệ 90+ gộp')
+    labels,values=band('dti_band');docfig('dti',labels,[('90+',values)],'DTI · tỷ lệ 90+ gộp')
+    for col,key,title in [('property_state','states','Bang · 10 nhóm tỷ lệ cao'),('seller_name','sellers','Seller · OTHER là tổng hợp')]:
+        top=sorted((r for r in m['bands'][col] if r['eligible_count']>=10000),key=lambda r:r['d90_plus_count']/r['eligible_count'],reverse=True)[:10]
+        docfig(key,[r['label'] if len(r['label'])<=25 else r['label'][:22]+'…' for r in top],[('90+',[r['d90_plus_count']/r['eligible_count'] for r in top])],title)
     fig,axes=plt.subplots(1,2,figsize=(12,4.6))
     for ax,col,title in zip(axes,['ltv_band','dti_band'],['LTV','DTI']):
         labels,values=band(col);draw_chart(ax,dict(labels=labels,series=[('90+',values)],kind='bar',title=title,percent=True))
     fig.tight_layout();fig.savefig(figures/'ltv_dti.png',dpi=150);plt.close(fig)
-    page('Q3 · So sánh bang và bên bán','metrics bands property_state/seller_name. Chỉ hiển thị nhóm >=10000 quan sát; OTHER là tổng hợp.')
-    for x,col,key,title in [(.7,'property_state','states','Bang · 10 nhóm tỷ lệ cao'),(7,'seller_name','sellers','Seller · OTHER là tổng hợp')]:
-        rows=sorted((r for r in m['bands'][col] if r['eligible_count']>=10000),key=lambda r:r['d90_plus_count']/r['eligible_count'],reverse=True)[:10]
-        labels=[r['label'] if len(r['label'])<=25 else r['label'][:22]+'…' for r in rows]
-        chart(key,labels,[('90+',[r['d90_plus_count']/r['eligible_count'] for r in rows])],title,kind='bar',x=x,y=1.65,w=5.65,h=4.8)
-    box(.8,6.4,11.7,.4,'Ngưỡng trình bày: ≥10.000 quan sát hợp lệ gộp toàn thời gian; không phải kiểm định',16,color=MUTED)
-    page('Q4 · Kết cục cohort hoãn trả COVID','metrics covid; tổng3310. R-36 window12thángsauFlast; hồi cứu không dùng như dự báo tại thời điểm F.')
-    chart('covid',[r['outcome'] for r in m['covid']],[('Khoản vay',[r['loan_count'] for r in m['covid']])],'3.310 khoản vay · kết cục hồi cứu',kind='bar',percent=False)
-    commentary('43,23% hồi phục','35,98% trả trước\n15,83% vỡ nợ lần đầu\n1,21% UNKNOWN\n\nKhông đo tác động nhân quả của chương trình hoãn trả')
-    page('Q5 · Trả trước hạn SMM và CPR','metrics prepayment. CPR annualized, không phải xác suất dự báo; early Feb2019 lowdenominator8.341m30loans.')
-    chart('prepayment',[r['reporting_date'][:7] for r in m['prepayment']],[(k.upper(),[float(r[k]) if r[k] is not None else None for r in m['prepayment']]) for k in ['smm','cpr']],'SMM và CPR · giữ cả giai đoạn đầu vintage')
-    commentary('03/2021: CPR 52,80%','Trong giai đoạn từ 2020\n\n02/2019 có mẫu số rất nhỏ (30 khoản vay tháng trước), nên CPR nhạy\n\nKhông đồng nhất trả trước với tái cấp vốn')
-    page('Kết luận, giới hạn và demo','Nguồn: docs/bao-cao-do-an.md, PRD 1.9, R-33/R-36/R-38; C1–C5 JSON. AutomateDV loading https://automate-dv.readthedocs.io/en/latest/best_practises/loading/ ; PostgreSQL transactions https://www.postgresql.org/docs/16/tutorial-transactions.html',True)
-    box(.8,1.6,11.6,1.3,'Luồng TXT → Delta → Data Vault → PostgreSQL giữ lịch sử, chạy lại an toàn và đo được từng tầng',27,color=WHITE,bold=True)
-    box(.8,3.2,11.5,1.6,'Giới hạn: một vintage, một nguồn, bộ mẫu 50.000 khoản vay, một máy; load_date giả lập; đối chứng FR-14 chỉ là SCD1; không suy rộng hiệu năng lên bộ đầy đủ',19,color='B9D7CD')
-    box(.8,5.0,11.5,1.2,'Demo: Airflow / control.layer_run → CORR1 và PIT trước/sau → mart PostgreSQL → notebook → experiments/results',19,color='E3B65C')
+
+    # ---------------------------------------------------------------- Chương 5
+    page('Kết luận','Tóm lại kết quả, nêu thẳng hạn chế (bộ mẫu, một máy, load_date giả lập) và hướng phát triển.',section='Chương 5 · Kết luận')
+    columns([('Kết quả đạt được','• Pipeline TXT → PostgreSQL chạy bằng một lệnh, giữ đủ lịch sử, chạy lại an toàn\n• 9 tiêu chí nghiệm thu, cổng C0–C6 đạt\n• 5 thực nghiệm có số đo và phép kiểm đúng\n• Trả lời đủ 5 câu hỏi rủi ro'),
+             ('Hạn chế','• Bộ mẫu 50.000 khoản vay, một máy: không suy ra hiệu năng bộ đầy đủ\n• load_date là thời điểm đến giả lập\n• Đối chứng FR-14 chỉ là SCD1\n• Phân tích mô tả, không nhân quả'),
+             ('Hướng phát triển','• Chạy bộ đầy đủ 2019 (hạ tầng đã có)\n• Gold incremental, gom file nhỏ\n• Mô hình PD 12 tháng trên đặc trưng PIT\n• Nhiều nguồn, triển khai trên cụm')],h=4.7,size=18)
+
+    page('Demo và hỏi đáp','Kịch bản demo: Airflow với 6 DAG theo tầng; bảng control.layer_run; đợt sửa CORR1 và PIT trước/sau; mart PostgreSQL; notebook; thư mục experiments/results.',True)
+    box(.8,1.7,11.6,1.0,'Cảm ơn thầy/cô đã lắng nghe',34,color=WHITE,bold=True)
+    box(.8,3.1,11.5,2.2,'Demo: Airflow (6 DAG theo tầng) → control.layer_run → đợt sửa CORR1 và PIT trước/sau → mart PostgreSQL → notebook → experiments/results',21,color='B9D7CD')
+    box(.8,5.6,11.5,.8,f'{STUDENT} · MSHV {STUDENT_ID}',20,color='E3B65C',bold=True)
     pptx=OUT/'bao-cao-sample.pptx';prs.save(pptx)
     # PDF và preview được render từ mô tả bố cục chung, không giả làm bản chuyển đổi Office.
     with PdfPages(OUT/'bao-cao-sample.pdf') as pdf:

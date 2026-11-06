@@ -1,6 +1,6 @@
 # Slide báo cáo trên sample
 
-Bộ slide gồm 20 trang, dùng số liệu sample 2019 đã đối soát ngày 31/10/2026 và kết quả
+Bộ slide gồm 20 trang theo sườn Mở đầu, Chương 1–5; dùng số liệu sample 2019 đã đối soát ngày 31/10/2026 và kết quả
 thực nghiệm C5 trên sample (R-38, `experiments/results/`). Báo cáo chính:
 [bao-cao-do-an.md](bao-cao-do-an.md).
 
@@ -19,15 +19,16 @@ trước buổi trình bày vì font/chart renderer có thể khác môi trườ
 
 ## Trình tự trình bày
 
-| Trang | Nội dung | Trọng tâm nói |
-| --- | --- | --- |
-| 1–4 | Bài toán, kết quả chính và dữ liệu | 50.000 loan; 1.934.614 loan-month; CORR1 là 20 dòng sửa giả lập riêng |
-| 5–6 | Kiến trúc và kỹ thuật nạp TXT → landing → Bronze | Đọc text rồi tách trường; landing phân vùng tháng; `replaceWhere` theo kỳ; số đo TN7 |
-| 7–9 | Cổng chất lượng, Raw Vault, `load_date` | Hard rule trước, soft rule sau; chỉ chèn khi `hash_diff` đổi; `load_date` giả lập theo tháng |
-| 10–11 | Kiểm chứng MVP và FR-14 | 69/69 kiểm tra C0–C4; SCD1 không đại diện mọi mô hình chiều |
-| 12–14 | Thực nghiệm TN1, TN2, TN4, TN6 | Trung vị 3 lần; mỗi thực nghiệm có phép kiểm đúng; không suy rộng sang bộ đầy đủ |
-| 15–19 | Kết quả Q1–Q5 | Luôn nêu mẫu số; phân nhóm gộp dùng loan-month; không diễn giải nhân quả |
-| 20 | Kết luận, giới hạn, demo | Mở `experiments/results/` và JSON cổng khi được hỏi |
+| Trang | Phần | Nội dung | Trọng tâm nói |
+| --- | --- | --- | --- |
+| 1 | | Tiêu đề, học viên, giảng viên | Một câu về bài toán |
+| 2–4 | Mở đầu | Lý do chọn đề tài, bài toán, mục tiêu và phạm vi | Đầu vào → xử lý → đầu ra; 5 câu hỏi Q1–Q5; phạm vi bộ mẫu (R-38) |
+| 5–7 | Chương 1 | Lakehouse và Delta Lake, Data Vault 2.0, công nghệ | Satellite chỉ thêm khi `hash_diff` đổi; Delta = Parquet + nhật ký giao dịch |
+| 8–9 | Chương 2 | Bộ dữ liệu, vấn đề dữ liệu → yêu cầu thiết kế | Quý khởi tạo khác quý báo cáo; dữ liệu bị sửa ở đợt sau |
+| 10–13 | Chương 3 | Kiến trúc, kỹ thuật nạp TXT → landing → Bronze, Raw Vault, BV/PIT/Gold | Mỗi tầng một job Airflow; landing phân vùng tháng (TN7) |
+| 14–18 | Chương 4 | Kiểm chứng, TN1, TN2/TN4/TN6, kết quả Q1–Q5 | Trung vị 3 lần đo; mỗi thực nghiệm có phép kiểm đúng; không diễn giải nhân quả |
+| 19 | Chương 5 | Kết quả, hạn chế, hướng phát triển | Không suy rộng hiệu năng sang bộ đầy đủ |
+| 20 | | Demo và hỏi đáp | Airflow → control.layer_run → CORR1/PIT → PostgreSQL → notebook |
 
 Khung trình bày gợi ý 20–25 phút; rút ngắn phần kiến trúc nếu học phần yêu cầu
 ít thời gian hơn. Ghi chú theo từng slide nằm trong PowerPoint và file outline.
@@ -52,3 +53,5 @@ phần lưu trong Git. Không đưa file loan-level vào slide hoặc thư mục
 Video demo và thông tin học viên/giảng viên, mẫu bìa theo học phần do người thực hiện
 hoàn thiện; không tự suy ra danh tính từ tài khoản máy. Trạng thái các cổng xem
 `tests/gates/results/` và Kế hoạch mục 6.
+
+Thông tin học viên khai báo đầu file `scripts/build_sample_slides.py` (`STUDENT`, `STUDENT_ID`, `ADVISOR`); điền tên giảng viên vào `ADVISOR` rồi chạy `uv run python -m scripts.build_sample_slides`, hoặc sửa thẳng trong PowerPoint.
