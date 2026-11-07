@@ -23,9 +23,9 @@ trước buổi trình bày vì font/chart renderer có thể khác môi trườ
 | --- | --- | --- | --- |
 | 1 | | Tiêu đề, học viên, giảng viên | Một câu về bài toán |
 | 2–4 | Mở đầu | Lý do chọn đề tài, bài toán, mục tiêu và phạm vi | Đầu vào → xử lý → đầu ra; 5 câu hỏi Q1–Q5; phạm vi bộ mẫu (R-38) |
-| 5–7 | Chương 1 | Lakehouse và Delta Lake, Data Vault 2.0, công nghệ | Satellite chỉ thêm khi `hash_diff` đổi; Delta = Parquet + nhật ký giao dịch |
+| 5–7 | Chương 1 | Lakehouse và Medallion, Delta Lake và bảng Delta, Data Vault 2.0 | Bảng Delta = Parquet + `_delta_log`, `replaceWhere`; Satellite chỉ thêm khi `hash_diff` đổi |
 | 8–9 | Chương 2 | Bộ dữ liệu, vấn đề dữ liệu → yêu cầu thiết kế | Quý khởi tạo khác quý báo cáo; dữ liệu bị sửa ở đợt sau |
-| 10–13 | Chương 3 | Kiến trúc, kỹ thuật nạp TXT → landing → Bronze, Raw Vault, BV/PIT/Gold | Mỗi tầng một job Airflow; landing phân vùng tháng (TN7) |
+| 10–13 | Chương 3 | Kiến trúc và công nghệ, kỹ thuật nạp TXT → landing → Bronze, Raw Vault, BV/PIT/Gold | Mỗi tầng một job Airflow; landing phân vùng tháng (TN7) |
 | 14–18 | Chương 4 | Kiểm chứng, TN1, TN2/TN4/TN6, kết quả Q1–Q5 | Trung vị 3 lần đo; mỗi thực nghiệm có phép kiểm đúng; không diễn giải nhân quả |
 | 19 | Chương 5 | Kết quả, hạn chế, hướng phát triển | Không suy rộng hiệu năng sang bộ đầy đủ |
 | 20 | | Demo và hỏi đáp | Airflow → control.layer_run → CORR1/PIT → PostgreSQL → notebook |

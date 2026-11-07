@@ -7,7 +7,7 @@ Kịch bản cho bộ slide 20 trang (`data/reports/sample-report/bao-cao-sample
 | Phần | Trang | Thời gian | Mục đích |
 | --- | --- | ---: | --- |
 | Mở đầu | 1–4 | 3 phút | Người nghe hiểu bài toán trước khi nghe giải pháp |
-| Chương 1 | 5–7 | 2 phút 30 | Đủ khái niệm để theo được chương 3; không giảng lý thuyết dài |
+| Chương 1 | 5–7 | 3 phút | Medallion, bảng Delta và Data Vault: đủ để theo được chương 3 |
 | Chương 2 | 8–9 | 2 phút 30 | Mỗi vấn đề dữ liệu dẫn tới một quyết định thiết kế |
 | Chương 3 | 10–13 | 5 phút | Trọng tâm kỹ thuật xử lý dữ liệu |
 | Chương 4 | 14–18 | 5 phút | Bằng chứng: kiểm chứng, thực nghiệm, kết quả phân tích |
@@ -15,7 +15,7 @@ Kịch bản cho bộ slide 20 trang (`data/reports/sample-report/bao-cao-sample
 | Demo | 20 | 5 phút | Chứng minh hệ thống chạy thật và giữ được lịch sử |
 | **Tổng** | | **khoảng 24 phút** | Rút gọn: bỏ demo trực tiếp, chiếu video; bớt chương 1 |
 
-Nếu học phần giới hạn 15 phút: nói lướt trang 5–7 (1 phút), gộp trang 15–16 (2 phút), chiếu video demo thay vì demo trực tiếp.
+Nếu học phần giới hạn 15 phút: nói lướt trang 5 và 7, giữ trang 6 về bảng Delta (1 phút 30), gộp trang 15–16 (2 phút), chiếu video demo thay vì demo trực tiếp.
 
 ## Lời nói theo từng trang
 
@@ -47,19 +47,23 @@ Lời dưới đây là gợi ý để nói tự nhiên, không đọc nguyên v
 
 ### Chương 1 · Cơ sở lý thuyết và công nghệ
 
-**Trang 5 · Lakehouse, Medallion, Delta Lake (50 giây)**
+**Trang 5 · Lakehouse và Medallion (40 giây)**
 
-> Lakehouse tổ chức dữ liệu qua ba lớp: Bronze giữ nguyên nguồn, Silver làm sạch và tích hợp, Gold phục vụ phân tích. Trong đồ án, lớp Silver chính là Data Vault. Dữ liệu lưu bằng **Delta Lake: các file Parquet cộng một nhật ký giao dịch**, cho phép ghi nguyên tử, ghi đè đúng một lát dữ liệu và xem phiên bản cũ.
+> Lakehouse tổ chức dữ liệu qua ba lớp: Bronze giữ nguyên nguồn, Silver làm sạch và tích hợp, Gold phục vụ phân tích. **Trong đồ án, lớp Silver chính là Data Vault.** Mọi tầng đều lưu dưới dạng bảng Delta trên ổ đĩa cục bộ.
 
-**Trang 6 · Data Vault 2.0 (60 giây)**
+**Trang 6 · Delta Lake và bảng Delta (70 giây)**
+
+> Bảng Delta không phải một định dạng file mới. **Dữ liệu vẫn là file Parquet nén theo cột; Delta thêm một thư mục `_delta_log` ghi lại từng lần thay đổi.** Bên trái là bảng `bronze.perf` thật của đồ án: 29 thư mục, mỗi kỳ một thư mục, và 41 commit trong nhật ký. Mỗi commit là một file JSON liệt kê file nào được thêm, file nào bị bỏ.
+>
+> Nhờ nhật ký này, Delta có giao dịch ACID: người đọc luôn thấy một phiên bản hoàn chỉnh, job chết giữa chừng không để lại bảng dở. **Tính năng em dùng nhiều nhất là `replaceWhere`**: commit thứ hai ghi rõ "chỉ thay dữ liệu của kỳ 2019Q1", nên chạy lại một kỳ chỉ thay đúng lát đó, không bị trùng. Delta còn cho xem lịch sử bảng và quay về phiên bản cũ bằng `RESTORE`; em dùng nó trong thực nghiệm TN2.
+>
+> Cần phân biệt: lịch sử của Delta là lịch sử vật lý của bảng, có thể bị dọn. Lịch sử nghiệp vụ, tức giá trị nào đúng tại tháng nào, theo đợt nạp nào, do Satellite của Data Vault giữ.
+
+**Trang 7 · Data Vault 2.0 (60 giây)**
 
 > Data Vault tách dữ liệu thành bốn loại đối tượng. **Hub** giữ danh sách khóa nghiệp vụ, ví dụ mã khoản vay. **Link** giữ quan hệ, ví dụ khoản vay với bên bán. **Satellite** giữ thuộc tính có lịch sử. **PIT** là bảng con trỏ để lấy nhanh trạng thái tại một mốc.
 >
 > **Điểm cốt lõi: Satellite chỉ thêm dòng khi thuộc tính thay đổi, phát hiện bằng hash_diff, và không bao giờ sửa hay xóa.** Nhờ đó mọi phiên bản đều còn.
-
-**Trang 7 · Công nghệ (40 giây)**
-
-> PySpark xử lý file và kiểm tra kỹ thuật. dbt cùng package AutomateDV mô hình hóa Data Vault bằng SQL. Delta Lake lưu trên đĩa cục bộ, truy cập qua Spark Thrift Server. Airflow điều phối, mỗi tầng một DAG. PostgreSQL phục vụ mart cho notebook. Tất cả chạy bằng Docker Compose.
 
 *Chuyển ý:* "Vì sao thiết kế như vậy? Câu trả lời nằm ở đặc điểm của chính dữ liệu."
 
@@ -88,6 +92,8 @@ Lời dưới đây là gợi ý để nói tự nhiên, không đọc nguyên v
 **Trang 10 · Kiến trúc (60 giây)**
 
 > Dữ liệu đi từ trái sang phải: Bronze, cổng chất lượng, Silver gồm Raw Vault và Business Vault, Gold, rồi xuất sang PostgreSQL. **Mỗi tầng là một DAG Airflow độc lập**, đọc bảng điều khiển để biết kỳ nào đã sẵn sàng. Tầng nào lỗi thì thử lại tầng đó, không chạy lại tầng dưới.
+>
+> Công nghệ ghi dưới mỗi tầng: PySpark cho Bronze, cổng chất lượng và xuất dữ liệu; dbt cùng AutomateDV mô hình hóa Vault và Gold bằng SQL; PostgreSQL phục vụ notebook. Tất cả chạy bằng Docker Compose trên một máy.
 
 **Trang 11 · Kỹ thuật nạp TXT → landing → Bronze (90 giây, trọng tâm)**
 

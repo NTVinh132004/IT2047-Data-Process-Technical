@@ -79,16 +79,16 @@ def main():
         if section:box(.6,.12,11.5,.3,section,13,color=TEAL,bold=True)
         box(12.15,7.02,.5,.25,f'{len(page_data):02d}',12,color='A9CAC0' if dark else MUTED)
         return slide
-    def box(x,y,w,h,text,size=20,color=INK,bold=False,fill=None):
+    def box(x,y,w,h,text,size=20,color=INK,bold=False,fill=None,mono=False):
         slide=current['slide']
         sh=slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x),Inches(y),Inches(w),Inches(h)) if fill else slide.shapes.add_textbox(Inches(x),Inches(y),Inches(w),Inches(h))
         sh.name=f'S{len(page_data):02d}_text_{len(current["elements"])}'
         if fill:sh.fill.solid();sh.fill.fore_color.rgb=rgb(fill);sh.line.fill.background()
         tf=sh.text_frame;tf.clear();tf.margin_left=Inches(.15 if fill else 0);tf.margin_right=Inches(.15 if fill else 0);tf.margin_top=Inches(.12 if fill else 0);tf.word_wrap=True
-        wrapped='\n'.join(textwrap.fill(line,width=max(15,int((w-.3 if fill else w)*72/(size*.53))),break_long_words=False) for line in str(text).split('\n'))
+        wrapped=str(text) if mono else '\n'.join(textwrap.fill(line,width=max(15,int((w-.3 if fill else w)*72/(size*.53))),break_long_words=False) for line in str(text).split('\n'))
         for i,line in enumerate(wrapped.split('\n')):
-            p=tf.paragraphs[0] if i==0 else tf.add_paragraph();p.text=line;p.font.name='Arial';p.font.size=Pt(size);p.font.bold=bold;p.font.color.rgb=rgb(color);p.space_after=Pt(3)
-        current['elements'].append(dict(type='text',x=x,y=y,w=w,h=h,text=wrapped,size=size,color=color,bold=bold,fill=fill))
+            p=tf.paragraphs[0] if i==0 else tf.add_paragraph();p.text=line;p.font.name='Consolas' if mono else 'Arial';p.font.size=Pt(size);p.font.bold=bold;p.font.color.rgb=rgb(color);p.space_after=Pt(3)
+        current['elements'].append(dict(type='text',x=x,y=y,w=w,h=h,text=wrapped,size=size,color=color,bold=bold,fill=fill,mono=mono))
     def card(x,y,w,value,label):
         box(x,y,w,1.65,'',fill=LIGHT)
         box(x+.2,y+.2,w-.4,.65,value,36,color=TEAL,bold=True)
@@ -194,22 +194,19 @@ def main():
     diagram([('Bronze','Dữ liệu nguồn giữ nguyên dạng chuỗi\nkèm nguồn, thời điểm nạp'),
              ('Silver','Raw Vault: lịch sử nguồn\nBusiness Vault: quy tắc nghiệp vụ'),
              ('Gold','Mô hình chiều và mart\ncho người phân tích')])
-    box(.8,5.75,11.6,.9,'Delta Lake = file Parquet + nhật ký giao dịch: ACID, ghi đè đúng lát (replaceWhere), xem phiên bản cũ',18,color=TEAL)
+    box(.8,5.75,11.6,.9,'Mọi tầng lưu dưới dạng bảng Delta trên ổ đĩa cục bộ; lớp Silver của đồ án chính là Data Vault',18,color=TEAL)
 
+    page('Delta Lake và bảng Delta','Bảng Delta không phải định dạng file mới: dữ liệu vẫn là Parquet, Delta thêm thư mục _delta_log ghi từng lần thay đổi. Ví dụ thật là bảng bronze.perf với 41 commit. Nhấn mạnh replaceWhere, vì đó là cơ chế làm cho việc chạy lại một kỳ không bị trùng dữ liệu.',section='Chương 1 · Cơ sở lý thuyết')
+    box(.6,1.6,6.3,4.1,'bronze.db/perf/            (một bảng Delta)\n├── _delta_log/            nhật ký giao dịch\n│   ├── 000…000.json        commit 0\n│   ├── 000…001.json        WRITE, kỳ 2019Q1\n│   │     "predicate": "period = 2019Q1"\n│   └── …                   41 commit\n├── period=2019Q1/\n│   └── part-0000….snappy.parquet\n├── period=2019Q2/\n└── …                       29 thư mục kỳ',15,color=INK,fill=LIGHT,mono=True)
+    box(7.1,1.6,5.6,.45,'Bảng Delta = Parquet + nhật ký',20,color=TEAL,bold=True)
+    box(7.1,2.2,5.6,3.6,'• Dữ liệu: file Parquet nén theo cột\n• _delta_log: mỗi lần ghi là một commit JSON liệt kê file thêm, file bỏ\n• ACID: người đọc luôn thấy một phiên bản hoàn chỉnh; job chết giữa chừng không để bảng dở\n• Ghi đè đúng lát: replaceWhere chỉ thay file của một kỳ\n• Lịch sử bảng: DESCRIBE HISTORY, time travel, RESTORE',16,color=INK)
+    box(.6,5.95,12.1,.85,'Trong đồ án: mọi bảng từ landing tới Gold là bảng Delta, đăng ký trong Hive Metastore, truy vấn qua Spark Thrift Server. Lịch sử của Delta là lịch sử vật lý của bảng; lịch sử nghiệp vụ do Satellite giữ',15,color=TEAL)
     page('Data Vault 2.0','Bốn đối tượng chính. Điểm quan trọng: Satellite chỉ thêm dòng khi thuộc tính đổi (so hash_diff) và không bao giờ sửa hay xóa, nên giữ được mọi phiên bản.',section='Chương 1 · Cơ sở lý thuyết')
     columns([('Hub','Danh sách khóa nghiệp vụ; mỗi khóa một dòng'),
              ('Link','Quan hệ giữa các khóa; mỗi cặp một dòng'),
              ('Satellite','Thuộc tính có lịch sử; chỉ thêm khi hash_diff đổi'),
              ('PIT','Con trỏ tới phiên bản hiệu lực tại mỗi mốc')],y=1.75,h=3.6,size=18)
     box(.8,5.75,11.6,.9,'Raw Vault chỉ thêm, không sửa, không xóa; quy tắc nghiệp vụ nằm ở Business Vault để đổi luật không phải nạp lại',18,color=TEAL)
-
-    page('Công nghệ sử dụng','Mỗi công cụ một vai trò. PySpark xử lý file và kiểm tra kỹ thuật; dbt mô hình hóa bằng SQL; Airflow điều phối mỗi tầng như một job độc lập.',section='Chương 1 · Cơ sở lý thuyết')
-    columns([('PySpark','Landing, Bronze, cổng chất lượng, xuất PostgreSQL'),
-             ('dbt','dbt-spark + AutomateDV: staging, Raw Vault, Business Vault, Gold bằng SQL'),
-             ('Delta Lake','Lưu trữ trên đĩa; Hive Metastore, Spark Thrift Server'),
-             ('Airflow','6 DAG theo tầng, bảng điều khiển, thử lại'),
-             ('PostgreSQL','Mart phục vụ, notebook Jupyter')],y=1.75,h=3.6,size=17)
-    box(.8,5.75,11.6,.9,'Spark 3.5.5 · Delta 3.3.2 · dbt-core 1.12 · AutomateDV 0.11.5 · Airflow 3.3 · Docker Compose',18,color=MUTED)
 
     # ---------------------------------------------------------------- Chương 2
     page('Bộ dữ liệu Freddie Mac','Hai file nối bằng mã khoản vay. Orig là thuộc tính lúc giải ngân, perf là trạng thái hằng tháng. Đợt sửa CORR1 là dữ liệu giả lập để kiểm chứng việc giữ lịch sử.',section='Chương 2 · Hiện trạng và dữ liệu')
@@ -228,7 +225,8 @@ def main():
     # ---------------------------------------------------------------- Chương 3
     page('Kiến trúc hệ thống','Luồng dữ liệu từ TXT tới notebook. Mỗi tầng là một job Airflow riêng, đọc bảng điều khiển để biết kỳ nào sẵn sàng.',section='Chương 3 · Thiết kế hệ thống')
     diagram([('Bronze','PySpark\nchuỗi nguồn, cắt lát kỳ'),('Quality','Hard rule\nquarantine / dedup'),('Silver','dbt + AutomateDV\nRaw Vault, BV, PIT'),('Gold','Fact + 5 dimension\n3 mart'),('Serving','JDBC → PostgreSQL\nnotebook')])
-    box(.8,6.0,11.5,.5,'Airflow: mỗi tầng một DAG, đọc control.layer_run; một slot Spark, một slot dbt',19,color=TEAL)
+    box(.8,5.75,11.6,.5,'Airflow: mỗi tầng một DAG, đọc control.layer_run; một slot Spark, một slot dbt',18,color=TEAL)
+    box(.8,6.35,11.6,.5,'Spark 3.5.5 · Delta 3.3.2 · dbt-spark + AutomateDV 0.11.5 · Airflow 3.3 · PostgreSQL 16 · Docker Compose',15,color=MUTED)
 
     page('Kỹ thuật nạp: TXT → landing → Bronze','Đọc TXT dạng text để giữ bằng chứng lỗi; ghi Delta phân vùng theo tháng để mỗi kỳ chỉ đọc 3 thư mục tháng. Số đo từ thực nghiệm TN7.',section='Chương 3 · Thiết kế hệ thống')
     diagram([('TXT perf',f"{mib('sample_perf_2019.txt')} MiB · 1 file\ntext + split, giữ chuỗi\n_field_count, _raw"),('Landing Delta',f"{mib('landing.sample_perf')} MiB · {storage['landing.sample_perf']['num_files']} file\nphân vùng theo tháng"),('Bronze','replaceWhere theo kỳ\nchỉ đọc 3 thư mục tháng'),('Quality','clean + quarantine\n+ dedup = Bronze')])
@@ -324,7 +322,7 @@ def main():
                     fig.lines.append(Line2D([x/13.333,(x+w)/13.333],[1-y/7.5,1-(y+h)/7.5],transform=fig.transFigure,color='#'+TEAL,linewidth=1.5,zorder=-.5))
                 else:
                     if el['fill']:fig.patches.append(FancyBboxPatch((x/13.333,1-(y+h)/7.5),w/13.333,h/7.5,boxstyle='round,pad=0.004',transform=fig.transFigure,facecolor='#'+el['fill'],edgecolor='none',zorder=-1))
-                    if el['text']:fig.text((x+(.15 if el['fill'] else 0))/13.333,1-(y+(.12 if el['fill'] else 0))/7.5,el['text'],va='top',fontsize=el['size'],fontweight='bold' if el['bold'] else 'normal',color='#'+el['color'],linespacing=1.2)
+                    if el['text']:fig.text((x+(.15 if el['fill'] else 0))/13.333,1-(y+(.12 if el['fill'] else 0))/7.5,el['text'],va='top',fontsize=el['size'],fontweight='bold' if el['bold'] else 'normal',color='#'+el['color'],family='monospace' if el.get('mono') else None,linespacing=1.2)
             pdf.savefig(fig);fig.savefig(preview/f'slide-{idx:02d}.png',dpi=85);plt.close(fig)
     slides=[]
     for idx in range(1,len(page_data)+1):
