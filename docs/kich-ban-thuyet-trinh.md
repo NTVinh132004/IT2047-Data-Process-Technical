@@ -11,15 +11,15 @@ Kịch bản cho bộ slide 20 trang (`data/reports/sample-report/bao-cao-sample
 | Mở đầu | 1–4 | 3 phút | Người nghe hiểu bài toán trước khi nghe giải pháp |
 | Chương 1 | 5–7 | 3 phút | Medallion, bảng Delta và Data Vault: đủ để theo được chương 3 |
 | Chương 2 | 8–9 | 2 phút 30 | Mỗi vấn đề dữ liệu dẫn tới một quyết định thiết kế |
-| Chương 3 | 10–13 | 5 phút | Trọng tâm kỹ thuật xử lý dữ liệu |
-| Chương 4 | 14–18 | 5 phút | Bằng chứng: kiểm chứng, thực nghiệm, kết quả phân tích |
+| Chương 3 | 10–14 | 6 phút | Trọng tâm kỹ thuật xử lý dữ liệu: nạp, phân vùng, mô hình |
+| Chương 4 | 15–18 | 4 phút 30 | Bằng chứng: kiểm chứng, thực nghiệm, kết quả phân tích |
 | Chương 5 | 19 | 1 phút | Kết luận và hạn chế, nói thẳng |
 | Demo | 20 | 5 phút | Chứng minh hệ thống chạy thật và giữ được lịch sử |
-| **Tổng** | | **khoảng 24 phút** | |
+| **Tổng** | | **khoảng 24–25 phút** | |
 
-**Nếu bị giới hạn 15 phút:** nói lướt trang 5 và 7, giữ trang 6 (1 phút 30); trang 12–13 mỗi trang 40 giây; gộp trang 15–16 (2 phút); chiếu video demo 2 phút thay vì demo trực tiếp.
+**Nếu bị giới hạn 15 phút:** nói lướt trang 5 và 7, giữ trang 6 (1 phút 30); trang 13–14 mỗi trang 40 giây; nói gộp trang 16–17 (2 phút); chiếu video demo 2 phút thay vì demo trực tiếp.
 
-**Nếu bị giới hạn 10 phút:** chỉ giữ trang 1, 3, 9, 10, 11, 14, 16, 19 và kết quả FR-14 trong demo (ảnh chụp sẵn).
+**Nếu bị giới hạn 10 phút:** chỉ giữ trang 1, 3, 9, 10, 11, 12, 15, 17, 19 và kết quả FR-14 trong demo (ảnh chụp sẵn).
 
 ## 2. Câu mở, câu chuyển và cách xử lý câu hỏi
 
@@ -172,7 +172,28 @@ Kịch bản cho bộ slide 20 trang (`data/reports/sample-report/bao-cao-sample
 - "Cổng chất lượng chặn những gì?" — ba luật kỹ thuật theo thứ tự: sai số trường, sai định dạng mã khoản vay, sai kiểu dữ liệu. Thêm trùng khóa: bản sao giống hệt thì giữ một, bản sao khác nội dung thì cách ly cả hai vì không biết bản nào đúng.
 - "Bộ mẫu có dòng lỗi không?" — bộ mẫu sạch, 0 dòng bị cách ly. Khả năng bắt lỗi được kiểm bằng dữ liệu giả lập cài lỗi (`make smoke`, test cổng C2).
 
-**Trang 12 · Mô hình Raw Vault (70 giây)**
+**Trang 12 · Phân vùng dữ liệu trên Delta (70 giây, trọng tâm)**
+
+*Chỉ vào:* bảng bốn hàng từ trên xuống; rồi ba ô dưới cùng từ trái sang phải.
+
+*Lời nói:*
+> Phân vùng là chia một bảng thành nhiều thư mục theo giá trị của một cột. Em phân vùng ở ba tầng đầu, mỗi tầng theo một cột khác nhau vì mục đích khác nhau.
+>
+> **Landing phân vùng theo tháng báo cáo**: 87 thư mục, mỗi thư mục đúng một file. Mục đích là đọc: khi nạp một kỳ, Spark chỉ mở 3 trong 87 thư mục, gọi là partition pruning. Đây là lý do cắt lát Bronze nhanh hơn 4–8 lần ở thực nghiệm TN7.
+>
+> **Bronze và quality phân vùng theo kỳ nạp**: 29 thư mục. Mục đích là ghi: `replaceWhere` chỉ thay file trong thư mục của kỳ đang chạy, nên chạy lại một kỳ không làm trùng dữ liệu của kỳ đó và không đụng tới kỳ khác.
+>
+> Từ Raw Vault trở đi em không phân vùng: Satellite lớn nhất chỉ khoảng 150 MiB, chia nhỏ hơn sẽ sinh nhiều file vụn và chậm đi. Delta vẫn lưu giá trị nhỏ nhất, lớn nhất của từng cột trong mỗi file để bỏ qua file khi lọc.
+>
+> Hai việc em ghi thành hướng phát triển: **tầng quality đang có 464 file nhỏ** cần gom bằng `OPTIMIZE`, và phân vùng Satellite theo kỳ khi chạy bộ đầy đủ.
+
+*Ví dụ:* trước khi ghi landing, em gọi `repartition` theo tháng để dữ liệu của mỗi tháng gom về một chỗ; không có bước này, mỗi khối đọc sẽ rải một file nhỏ vào mọi tháng nó gặp, 87 tháng có thể thành hàng trăm file.
+
+*Nếu bị hỏi ngay:*
+- "Sao landing theo tháng mà Bronze theo kỳ?" — landing phục vụ việc đọc lát của bất kỳ kỳ nào, đơn vị nhỏ nhất là tháng; Bronze phục vụ việc ghi đè theo kỳ, đơn vị chạy là quý.
+- "Phân vùng nhiều có tốt hơn không?" — không. Mỗi phân vùng ít nhất một file; phân vùng quá mịn trên dữ liệu nhỏ làm Spark tốn thời gian liệt kê và mở file. Tầng quality là ví dụ: 464 file cho 1,93 triệu dòng.
+
+**Trang 13 · Mô hình Raw Vault (70 giây)**
 
 *Chỉ vào:* ba Hub ở hàng trên; hai Link; khối 5 Satellite; dòng chữ xanh dưới cùng.
 
@@ -193,7 +214,7 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 
 *Nếu bị hỏi ngay:* "Sao lại băm khóa?" — khóa băm có độ dài cố định, tính được độc lập ở mọi tầng mà không cần tra bảng khác, nên các bảng nạp song song được. Quy tắc băm chốt một lần (trim, viết hoa, null thành `^^`, nối bằng `||`) và không đổi sau khi đã nạp.
 
-**Trang 13 · Business Vault, PIT, Gold, điều phối (60 giây)**
+**Trang 14 · Business Vault, PIT, Gold, điều phối (60 giây)**
 
 *Chỉ vào:* bốn cột; dòng Export dưới cùng.
 
@@ -202,7 +223,7 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 >
 > Khi xuất sang PostgreSQL, em ghi vào bảng trung gian, đối soát số dòng, rồi thay dữ liệu phục vụ trong một transaction: lỗi giữa chừng không làm hỏng bản đang dùng.
 
-*Ví dụ (tiếp ví dụ trang 12):* PIT tại mốc 01/03/2020 trỏ Satellite dư nợ tới phiên bản 01/03/2020 và Satellite quá hạn tới phiên bản 01/02/2020 (vì tháng 02 không có phiên bản mới). Truy vấn chỉ cần nối bằng đúng cặp (khoản vay, load_date) đó.
+*Ví dụ (tiếp ví dụ trang 13):* PIT tại mốc 01/03/2020 trỏ Satellite dư nợ tới phiên bản 01/03/2020 và Satellite quá hạn tới phiên bản 01/02/2020 (vì tháng 02 không có phiên bản mới). Truy vấn chỉ cần nối bằng đúng cặp (khoản vay, load_date) đó.
 
 *Nếu bị hỏi ngay:* "Business Vault có được kiểm không?" — logic được đối chiếu với một chương trình Python viết riêng, đọc thẳng file TXT, không dùng chung code với pipeline: 20 khoản vay, 983 tháng, 0 sai lệch (EP-05).
 
@@ -210,7 +231,7 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 
 ### Chương 4 · Triển khai thực nghiệm và đánh giá
 
-**Trang 14 · Kiểm chứng (60 giây)**
+**Trang 15 · Kiểm chứng (60 giây)**
 
 *Chỉ vào:* ba thẻ số; đoạn FR-14; dòng AC-02.
 
@@ -221,7 +242,7 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 
 *Nếu bị hỏi ngay:* "89 kiểm tra gồm những gì?" — các cổng C0 đến C5 (hạ tầng, Bronze, Raw Vault, Business Vault, Gold, thực nghiệm) và unit test; mỗi cổng có kết quả lưu trong `tests/gates/results/` kèm commit.
 
-**Trang 15 · TN1 mở rộng quy mô (60 giây)**
+**Trang 16 · TN1 mở rộng quy mô (60 giây)**
 
 *Chỉ vào:* biểu đồ trái (ba cột end-to-end); biểu đồ phải, nhóm raw_vault (cột xanh dương cao nhất).
 
@@ -234,7 +255,7 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 
 *Nếu bị hỏi ngay:* "Vậy có kết luận về bộ đầy đủ không?" — không. Ở quy mô mẫu chi phí cố định lấn át nên chưa thấy xu hướng theo dữ liệu; bộ đầy đủ lớn gấp khoảng 36 lần cần đo riêng.
 
-**Trang 16 · TN2, TN4, TN6 (90 giây)**
+**Trang 17 · TN2, TN4, TN6 (90 giây)**
 
 *Chỉ vào:* biểu đồ trái (đường cam đi lên, đường xanh nằm ngang); biểu đồ phải (cột cam cao gấp nhiều lần cột xanh ở nhóm trái); dòng TN6 dưới cùng.
 
@@ -249,27 +270,24 @@ Trên bộ mẫu thật: Satellite dư nợ có 1.934.615 dòng (gần bằng s�
 
 *Nếu bị hỏi ngay:* "Join trực tiếp chậm vì sao?" — không có PIT, mỗi (khoản vay, mốc) phải ghép với mọi phiên bản có load_date không vượt mốc rồi xếp hạng để giữ bản mới nhất; với dư nợ đổi hằng tháng, một khoản vay m tháng sinh khoảng m²/2 cặp trung gian.
 
-**Trang 17 · Kết quả Q1–Q3 (60 giây)**
+**Trang 18 · Kết quả phân tích Q1–Q5 (80 giây)**
 
-*Chỉ vào:* biểu đồ trái, đỉnh đường đỏ đầu 2021; biểu đồ phải, cột 620–679; dòng chú thích dưới (Q3).
+*Chỉ vào:* biểu đồ trái, đỉnh đường đỏ đầu 2021; biểu đồ phải, hai cột RECOVERED và PREPAID dài nhất; rồi dòng chữ dưới cùng cho Q2, Q3, Q5.
 
-*Cách đọc biểu đồ:* biểu đồ trái là tỷ lệ quá hạn theo tháng, ba đường cho 30–59, 60–89 và 90+ ngày; biểu đồ phải là tỷ lệ 90+ gộp toàn thời gian theo nhóm điểm tín dụng.
+*Cách đọc biểu đồ:* biểu đồ trái là tỷ lệ quá hạn theo tháng, ba đường cho 30–59, 60–89 và 90+ ngày; biểu đồ phải là số khoản vay theo kết cục sau lần hoãn trả cuối.
 
 *Lời nói:*
-> Câu 1: tỷ lệ quá hạn 90 ngày trở lên tăng mạnh từ giữa 2020, **đỉnh 3,57% vào tháng 2/2021**, tức 1.073 trên 30.067 khoản vay hợp lệ, rồi giảm dần còn 0,94% ở tháng 3/2026. Câu 2: nhóm điểm tín dụng 620–679 có tỷ lệ 3,49%, nhóm từ 780 chỉ 0,38%. Câu 3: trong các bang có đủ quan sát, New Jersey 2,52%, Nevada 2,04%, New York 1,91% cao nhất.
+> Câu 1: tỷ lệ quá hạn 90 ngày trở lên tăng mạnh từ giữa 2020, **đỉnh 3,57% vào tháng 2/2021**, tức 1.073 trên 30.067 khoản vay hợp lệ, rồi giảm dần còn 0,94% ở tháng 3/2026.
 >
-> **Đây là thống kê mô tả trên bộ mẫu, không phải quan hệ nhân quả.**
+> Câu 4, biểu đồ phải: 3.310 khoản vay từng được hoãn trả thời COVID. Xét 12 tháng sau lần hoãn trả cuối: 43% hồi phục, 36% trả trước hạn, 16% vỡ nợ lần đầu.
+>
+> Dòng dưới: câu 2, nhóm điểm tín dụng 620–679 có tỷ lệ 90+ là 3,49%, nhóm từ 780 chỉ 0,38%. Câu 3, trong các bang có đủ quan sát, New Jersey, Nevada, New York cao nhất. Câu 5, tỷ lệ trả trước hạn năm hóa **đạt đỉnh 52,8% vào tháng 3/2021**, giai đoạn lãi suất thấp; dữ liệu không ghi lý do trả trước nên em không khẳng định tất cả là tái cấp vốn.
+>
+> **Đây là thống kê mô tả trên bộ mẫu, không phải quan hệ nhân quả.** Biểu đồ đầy đủ của câu 2, 3, 5 có trong notebook, em sẽ mở ở phần demo.
 
-*Nếu bị hỏi ngay:* "Nhóm dưới 620 sao lại thấp hơn 620–679?" — nhóm đó chỉ có 1.744 quan sát, quá ít để rút xu hướng; em ghi rõ điều này trong báo cáo.
-
-**Trang 18 · Kết quả Q4–Q5 (50 giây)**
-
-*Chỉ vào:* biểu đồ trái (cột RECOVERED và PREPAID dài nhất); biểu đồ phải (đỉnh đường cam đầu 2021, và điểm cao bất thường đầu 2019).
-
-*Lời nói:*
-> Câu 4: 3.310 khoản vay từng được hoãn trả thời COVID. Xét 12 tháng sau lần hoãn trả cuối: 43% hồi phục, 36% trả trước hạn, 16% vỡ nợ lần đầu. Câu 5: tỷ lệ trả trước hạn năm hóa **đạt đỉnh 52,8% vào tháng 3/2021**, giai đoạn lãi suất thấp. Dữ liệu không ghi lý do trả trước, nên em không khẳng định tất cả là tái cấp vốn.
-
-*Nếu bị hỏi ngay:* "Điểm cao 73% đầu 2019 là gì?" — tháng 01/2019 chỉ có 30 khoản vay đang hoạt động, mẫu số quá nhỏ nên tỷ lệ năm hóa rất nhạy; không phải mức điển hình.
+*Nếu bị hỏi ngay:*
+- "Nhóm dưới 620 sao lại thấp hơn 620–679?" — nhóm đó chỉ có 1.744 quan sát, quá ít để rút xu hướng; em ghi rõ trong báo cáo.
+- "Tỷ lệ trả trước 73% đầu 2019 là gì?" (trong notebook) — tháng 01/2019 chỉ có 30 khoản vay đang hoạt động, mẫu số quá nhỏ nên tỷ lệ năm hóa rất nhạy; không phải mức điển hình.
 
 ### Chương 5 · Kết luận
 
@@ -330,7 +348,7 @@ Kiểm tra: tắt thông báo trên máy; chế độ ngủ của Windows đang 
 | 1 | 45 giây | Airflow: danh sách DAG, rồi bấm vào `layer_raw_vault` → tab Grid | 6 DAG `layer_*`; ô xanh là lần chạy thành công | "Mỗi tầng một DAG, chạy định kỳ 5 phút và khi tầng trên xong. Đây là các lần chạy của tầng Raw Vault." |
 | 2 | 45 giây | Terminal: `make status` | Bảng các kỳ, mỗi kỳ 6 tầng SUCCESS | "Bảng điều khiển ghi từng lần chạy: 29 quý cộng đợt sửa CORR1 đều thành công ở 6 tầng." |
 | 3 | 90 giây | Terminal: chạy `demo.sql` (mục 5.3) | Ba bảng kết quả nhỏ | "Đây là bằng chứng giữ lịch sử." Giải thích theo bảng kết quả mong đợi bên dưới |
-| 4 | 60 giây | JupyterLab: biểu đồ Q1, cuộn tới Q4 | Đường quá hạn tăng vọt 2020–2021; cột kết cục COVID | "Notebook đọc mart PostgreSQL, trả lời năm câu hỏi." |
+| 4 | 60 giây | JupyterLab: cuộn qua biểu đồ Q2 (điểm tín dụng), Q3 (bang), Q5 (SMM/CPR) | Các biểu đồ không có trên slide | "Notebook đọc mart PostgreSQL, trả lời năm câu hỏi; đây là các biểu đồ chi tiết của câu 2, 3 và 5." |
 | 5 | 30 giây | File Explorer: `experiments/results/` | Các file CSV, PNG, `manifest.json` | "Kết quả thô của năm thực nghiệm, mỗi file gắn với digest code lúc đo, kiểm bằng cổng C5." |
 
 ### 5.3. Truy vấn FR-14
@@ -423,6 +441,9 @@ Kết quả mong đợi trên bộ mẫu (đã chạy thử 06/11/2026; mất kh
 | Vì sao không đọc TXT bằng reader CSV? | CSV mặc định lấp hoặc cắt dòng sai số trường mà không báo (0/20 trong TN7). Có cấu hình cột lỗi thì phát hiện được nhưng giá trị đã bị biến đổi; tách thủ công giữ được giá trị theo vị trí và gắn lý do lỗi theo luật | Báo cáo 4.2 |
 | Nạp lại cùng một kỳ hai lần thì sao? | Bronze và quality ghi đè đúng lát kỳ; Satellite bỏ qua dòng có `load_date` không mới hơn phiên bản đã có; kết quả 0 dòng mới (AC-02, kiểm ở C2) | Báo cáo 4.3, 4.6 |
 | Freddie Mac đổi tên cột thì xử lý thế nào? | Vị trí và tên cột khai báo ở `conf/schema/`; đổi tên chỉ sửa cấu hình, không sửa code. Có test C1 kiểm điều này | Báo cáo 4.2 |
+| Dự án có dùng phân vùng (partition) không? | Có, ở ba tầng đầu: landing theo tháng báo cáo (87 phân vùng, mỗi kỳ chỉ đọc 3, partition pruning), Bronze và quality theo kỳ (29 phân vùng, để `replaceWhere` ghi đè đúng kỳ). Raw Vault trở đi chưa phân vùng; thực nghiệm phân vùng Satellite (TN3) đã cắt ở R-25 | Slide 12; báo cáo 4.2–4.4 |
+| `Window.partitionBy` trong cổng chất lượng có phải phân vùng không? | Không. Đó là hàm cửa sổ chia nhóm theo khóa để tìm bản trùng, không phải chia thư mục lưu trữ | `ingestion/quality.py` |
+| Có tối ưu file nhỏ không? | Chưa. `quality.perf_clean` có 464 file cho 1,93 triệu dòng do ghi đè theo kỳ với 16 phân vùng shuffle; hướng xử lý là `OPTIMIZE` hoặc giảm số partition khi ghi | Báo cáo 4.4 |
 | Bộ mẫu không có lỗi thì sao biết cổng chất lượng hoạt động? | Kiểm bằng dữ liệu giả lập cài sẵn đủ loại lỗi (`make smoke`, test cổng C2); TN7 cũng cài 20 dòng sai số trường | Báo cáo 4.4 |
 | Làm sao biết số liệu đúng? | Đối soát nhiều tầng: Bronze bằng nguồn; Bronze = sạch + cách ly + bản sao; dư nợ Gold khớp TXT 87 tháng; mart PostgreSQL bằng Delta; Business Vault khớp chương trình Python độc lập | Báo cáo 5.1 |
 
@@ -464,7 +485,10 @@ Kết quả mong đợi trên bộ mẫu (đã chạy thử 06/11/2026; mất kh
 | Parquet | Định dạng file lưu theo cột, nén tốt, đọc nhanh |
 | ACID | Giao dịch toàn vẹn: hoặc ghi xong hết, hoặc như chưa ghi; người đọc không thấy trạng thái dở |
 | `replaceWhere` | Ghi đè chỉ phần dữ liệu thỏa điều kiện (ví dụ một kỳ), giữ nguyên phần còn lại |
+| Phân vùng (partitioning) | Chia bảng thành các thư mục theo giá trị một cột, ví dụ `reporting_period=202004/` |
 | Partition pruning | Spark bỏ qua các thư mục phân vùng không thỏa điều kiện lọc, không cần đọc |
+| `repartition` | Chia lại dữ liệu trong bộ nhớ theo một cột trước khi ghi, để mỗi phân vùng ra ít file |
+| `OPTIMIZE` | Lệnh Delta gom nhiều file nhỏ thành ít file lớn (đồ án chưa dùng) |
 | Hub / Link / Satellite | Khóa nghiệp vụ / quan hệ giữa khóa / thuộc tính có lịch sử |
 | `hash_diff` | Mã băm các thuộc tính của Satellite, dùng để biết thuộc tính có đổi không |
 | `load_date` | Thời điểm dữ liệu vào kho (đồ án: ngày 1 tháng sau tháng báo cáo, giả lập) |

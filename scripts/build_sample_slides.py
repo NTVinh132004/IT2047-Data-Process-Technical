@@ -163,6 +163,13 @@ def main():
             box(x,y,w-.2,h,'',fill=LIGHT)
             box(x+.2,y+.15,w-.6,.5,head,22,color=TEAL,bold=True)
             box(x+.2,y+.85,w-.6,h-1.0,body,size,color=INK)
+    def grid(headers,rows_,widths,y=1.6,row_h=.72,size=15):
+        """Bảng đơn giản: hàng tiêu đề tô màu, các hàng sau nền trắng."""
+        xs=[.6];[xs.append(xs[-1]+w) for w in widths]
+        for i,h in enumerate(headers):box(xs[i]+.02,y,widths[i]-.04,row_h-.08,h,size,color=WHITE,bold=True,fill=TEAL)
+        for r,row in enumerate(rows_):
+            yy=y+(r+1)*row_h
+            for i,cell in enumerate(row):box(xs[i]+.02,yy,widths[i]-.04,row_h-.08,cell,size-1,color=INK,bold=(i==0),fill=LIGHT if r%2==0 else WHITE)
     def band(col):
         rows_=m['bands'][col];return [r['label'] for r in rows_],[r['d90_plus_count']/r['eligible_count'] for r in rows_]
     q_split=med('tn6_query','seconds',design='split');q_merged=med('tn6_query','seconds',design='merged')
@@ -233,6 +240,16 @@ def main():
     box(.8,5.75,11.6,.5,f'Lát Bronze một kỳ: {sec(slice_txt)}s đọc thẳng TXT → {sec(slice_landing)}s qua landing (TN7)',20,color=TEAL,bold=True)
     box(.8,6.35,11.6,.5,f"Dòng sai số trường cài sẵn: text + split bắt {faults['text_split']['detected']}/20 · CSV mặc định 0/20",17,color=MUTED)
 
+    page('Phân vùng dữ liệu trên Delta','Phân vùng là chia bảng thành thư mục theo giá trị một cột. Landing phân vùng theo tháng để mỗi kỳ chỉ đọc 3 tháng; Bronze và quality phân vùng theo kỳ để replaceWhere ghi đè đúng thư mục của kỳ. Từ Raw Vault trở đi không phân vùng vì quy mô nhỏ; phân vùng Satellite là hướng phát triển.',section='Chương 3 · Thiết kế hệ thống')
+    grid(['Bảng','Cột phân vùng','Phân vùng · file','Dùng để'],
+         [['landing.sample_perf','reporting_period (tháng)','87 · 87 file','Mỗi kỳ chỉ đọc 3 thư mục tháng'],
+          ['bronze.orig, bronze.perf','period (kỳ nạp)','29 kỳ','replaceWhere ghi đè đúng kỳ'],
+          ['quality.*_clean, quarantine','period','29 kỳ','Như Bronze; chạy lại không trùng'],
+          ['Raw Vault → Gold','không phân vùng','—','Quy mô nhỏ; Delta tự bỏ qua file theo min/max']],
+         [3.4,2.9,2.4,3.4],y=1.55,row_h=.68,size=15)
+    box(.6,5.1,4.0,1.5,'Partition pruning\nlọc trên cột phân vùng → Spark chỉ mở 3/87 thư mục (TN7: nhanh hơn 4–8 lần)',14,color=INK,fill=LIGHT)
+    box(4.75,5.1,4.0,1.5,'repartition trước khi ghi\ngom theo tháng rồi mới ghi → mỗi phân vùng đúng 1 file',14,color=INK,fill=LIGHT)
+    box(8.9,5.1,3.85,1.5,'Chưa làm: OPTIMIZE gom file nhỏ\nquality.perf_clean có 464 file; phân vùng Satellite (hướng phát triển)',14,color=MUTED,fill=LIGHT)
     page('Mô hình Raw Vault','3 Hub, 2 Link, 5 Satellite trên khoản vay và 2 satellite theo dõi hiện diện. Satellite tách theo tốc độ thay đổi: dư nợ đổi mỗi tháng, quá hạn ít đổi.',section='Chương 3 · Thiết kế hệ thống')
     for x1,y1,x2,y2 in [(2.1,2.5,3.9,3.15),(6.65,2.5,3.9,3.15),(10.9,2.5,9.4,3.15),(6.65,2.5,9.4,3.15),(6.65,2.5,6.65,4.45)]:
         line=current['slide'].shapes.add_connector(MSO_CONNECTOR.STRAIGHT,Inches(x1),Inches(y1),Inches(x2),Inches(y2))
@@ -274,14 +291,12 @@ def main():
 
     dates=[r['reporting_date'][:7] for r in m['monthly']]
     monthly=[(name,[r[k]/r['eligible_count'] if r['eligible_count'] else None for r in m['monthly']]) for name,k in [('30–59 ngày','d30_count'),('60–89 ngày','d60_count'),('90+ ngày','d90_plus_count')]]
-    page('Kết quả phân tích Q1–Q3','Q1: tỷ lệ 90+ cao nhất 3,57% ở 02/2021. Q2: nhóm điểm thấp quá hạn nhiều hơn. Q3: NJ, NV, NY cao nhất trong các bang đủ lớn. Đây là mô tả, không phải quan hệ nhân quả.',section='Chương 4 · Thực nghiệm và đánh giá')
-    chart('monthly',dates,monthly,'Q1 · Tỷ lệ quá hạn theo tháng',x=.5,y=1.6,w=7.2,h=4.6)
-    labels,values=band('credit_score_band');chart('credit',labels,[('90+',values)],'Q2 · 90+ theo điểm tín dụng',kind='bar',x=7.9,y=1.6,w=4.9,h=4.6)
-    box(.8,6.4,11.9,.4,'Q1 đỉnh 90+ 3,57% (02/2021) · Q2 620–679: 3,49%, ≥780: 0,38% · Q3 NJ 2,52%, NV 2,04%, NY 1,91%',15,color=MUTED)
-    page('Kết quả phân tích Q4–Q5','Q4: cohort 3.310 khoản vay hoãn trả COVID, 43% hồi phục, 36% trả trước, 16% vỡ nợ lần đầu. Q5: CPR đỉnh 52,8% ở 03/2021 khi lãi suất thấp.',section='Chương 4 · Thực nghiệm và đánh giá')
-    chart('covid',[r['outcome'] for r in m['covid']],[('Khoản vay',[r['loan_count'] for r in m['covid']])],'Q4 · Kết cục sau hoãn trả (3.310 khoản vay)',kind='bar',percent=False,x=.5,y=1.6,w=5.8,h=4.6)
-    chart('prepayment',[r['reporting_date'][:7] for r in m['prepayment']],[(k.upper(),[float(r[k]) if r[k] is not None else None for r in m['prepayment']]) for k in ['smm','cpr']],'Q5 · Trả trước hạn SMM và CPR',x=6.5,y=1.6,w=6.3,h=4.6)
-    box(.8,6.35,11.7,.45,'Q4: 43,23% hồi phục · 35,98% trả trước · 15,83% vỡ nợ lần đầu · Q5: CPR đỉnh 52,80% (03/2021)',16,color=MUTED)
+    page('Kết quả phân tích Q1–Q5','Đầu ra trả lời năm câu hỏi. Hai biểu đồ chính: quá hạn theo tháng và kết cục sau hoãn trả. Các con số Q2, Q3, Q5 ở dòng dưới; biểu đồ đầy đủ trong notebook. Đây là mô tả trên bộ mẫu, không phải nhân quả.',section='Chương 4 · Thực nghiệm và đánh giá')
+    chart('monthly',dates,monthly,'Q1 · Tỷ lệ quá hạn theo tháng',x=.5,y=1.5,w=6.6,h=4.0)
+    chart('covid',[r['outcome'] for r in m['covid']],[('Khoản vay',[r['loan_count'] for r in m['covid']])],'Q4 · Kết cục sau hoãn trả (3.310 khoản vay)',kind='bar',percent=False,x=7.3,y=1.5,w=5.5,h=4.0)
+    box(.7,6.1,12.0,.8,'Q1 đỉnh 90+ 3,57% (02/2021) · Q2 nhóm điểm 620–679: 3,49%, ≥780: 0,38% · Q3 NJ 2,52%, NV 2,04%, NY 1,91% · Q4 hồi phục 43%, trả trước 36%, vỡ nợ 16% · Q5 CPR đỉnh 52,80% (03/2021)',14,color=MUTED)
+    labels,values=band('credit_score_band');docfig('credit',labels,[('90+',values)],'Q2 · 90+ theo điểm tín dụng')
+    docfig('prepayment',[r['reporting_date'][:7] for r in m['prepayment']],[(k.upper(),[float(r[k]) if r[k] is not None else None for r in m['prepayment']]) for k in ['smm','cpr']],'SMM và CPR · giữ cả giai đoạn đầu vintage',kind='line')
     # Hình cho báo cáo mục 6, không còn là trang riêng trong slide
     labels,values=band('ltv_band');docfig('ltv',labels,[('90+',values)],'LTV · tỷ lệ 90+ gộp')
     labels,values=band('dti_band');docfig('dti',labels,[('90+',values)],'DTI · tỷ lệ 90+ gộp')
