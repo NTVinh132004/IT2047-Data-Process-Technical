@@ -197,10 +197,10 @@ def main():
     box(.8,5.75,11.6,.9,'Delta Lake = file Parquet + nhật ký giao dịch: ACID, ghi đè đúng lát (replaceWhere), xem phiên bản cũ',18,color=TEAL)
 
     page('Data Vault 2.0','Bốn đối tượng chính. Điểm quan trọng: Satellite chỉ thêm dòng khi thuộc tính đổi (so hash_diff) và không bao giờ sửa hay xóa, nên giữ được mọi phiên bản.',section='Chương 1 · Cơ sở lý thuyết')
-    diagram([('Hub','Danh sách khóa nghiệp vụ\nmỗi khóa một dòng'),
-             ('Link','Quan hệ giữa các khóa\nmỗi cặp một dòng'),
-             ('Satellite','Thuộc tính có lịch sử\nchỉ thêm khi hash_diff đổi'),
-             ('PIT','Con trỏ tới phiên bản\nhiệu lực tại mỗi mốc')])
+    columns([('Hub','Danh sách khóa nghiệp vụ; mỗi khóa một dòng'),
+             ('Link','Quan hệ giữa các khóa; mỗi cặp một dòng'),
+             ('Satellite','Thuộc tính có lịch sử; chỉ thêm khi hash_diff đổi'),
+             ('PIT','Con trỏ tới phiên bản hiệu lực tại mỗi mốc')],y=1.75,h=3.6,size=18)
     box(.8,5.75,11.6,.9,'Raw Vault chỉ thêm, không sửa, không xóa; quy tắc nghiệp vụ nằm ở Business Vault để đổi luật không phải nạp lại',18,color=TEAL)
 
     page('Công nghệ sử dụng','Mỗi công cụ một vai trò. PySpark xử lý file và kiểm tra kỹ thuật; dbt mô hình hóa bằng SQL; Airflow điều phối mỗi tầng như một job độc lập.',section='Chương 1 · Cơ sở lý thuyết')
@@ -265,7 +265,7 @@ def main():
 
     page('Thực nghiệm TN1: mở rộng quy mô','Ba tập con 25, 50, 100% khoản vay, mỗi tập 3 lần với stack mới. Ở quy mô mẫu, chi phí cố định của Spark và dbt chiếm phần lớn thời gian.',section='Chương 4 · Thực nghiệm và đánh giá')
     image(EXPERIMENTS/'tn1_scale.png',.7,1.55,11.9)
-    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · Raw Vault theo số lô (p25: 6 lô, p100: 2 lô) · đạt AC 9/9 lần',17,color=TEAL)
+    box(.8,6.3,11.6,.5,f'Dữ liệu ×3,9 → thời gian +{100*(tn1["p100"]/tn1["p25"]-1):.0f}% · Raw Vault theo số lô (p25: 6, p100: 2) · đạt AC 9/9 lần',17,color=TEAL)
 
     page('Thực nghiệm TN2, TN4, TN6','Ba thực nghiệm chứng minh quyết định thiết kế Data Vault. Mỗi thực nghiệm có phép kiểm đúng: cùng số dòng hoặc cùng checksum.',section='Chương 4 · Thực nghiệm và đánh giá')
     image(EXPERIMENTS/'tn2_incremental.png',.5,1.5,6.1)
