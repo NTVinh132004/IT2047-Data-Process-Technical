@@ -197,7 +197,7 @@ def main():
              ('Phạm vi','• Bộ mẫu vintage 2019: 50.000 khoản vay, 29 quý (01/2019–03/2026)\n• Một máy: WSL2, RAM 12 GB, Docker\n• Ngoài phạm vi: bộ đầy đủ 8,2 GB, mô hình ML, streaming, cloud')],h=4.4,size=20)
 
     # ---------------------------------------------------------------- Chương 1
-    page('Lakehouse, Medallion và Delta Lake','Medallion tổ chức dữ liệu theo mức hoàn thiện. Trong đồ án, Silver chứa Data Vault. Delta Lake là định dạng bảng: file Parquet cộng nhật ký giao dịch, cho phép ghi đè đúng lát và xem phiên bản cũ.',section='Chương 1 · Cơ sở lý thuyết')
+    page('Lakehouse và Medallion','Medallion tổ chức dữ liệu theo mức hoàn thiện. Trong đồ án, Silver chứa Data Vault. Delta Lake là định dạng bảng: file Parquet cộng nhật ký giao dịch, cho phép ghi đè đúng lát và xem phiên bản cũ.',section='Chương 1 · Cơ sở lý thuyết')
     diagram([('Bronze','Dữ liệu nguồn giữ nguyên dạng chuỗi\nkèm nguồn, thời điểm nạp'),
              ('Silver','Raw Vault: lịch sử nguồn\nBusiness Vault: quy tắc nghiệp vụ'),
              ('Gold','Mô hình chiều và mart\ncho người phân tích')])
